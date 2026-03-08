@@ -1,9 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Info, Link2, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Info, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -275,10 +275,6 @@ export function PlatformDetailPage() {
                   <strong>{t(emptyAccountBehaviorLabel[platform.reverse_proxy_empty_account_behavior])}</strong>
                 </span>
               </div>
-              <Link to={`/nodes?platform_id=${encodeURIComponent(platform.id)}`} className="platform-detail-node-link">
-                <Link2 size={14} />
-                <span>{t("可路由节点")}</span>
-              </Link>
             </div>
           </Card>
 

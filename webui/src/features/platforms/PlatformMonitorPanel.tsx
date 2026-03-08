@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Activity, AlertTriangle, Clock3, Layers, ShieldCheck, Waypoints } from "lucide-react";
+import { Activity, AlertTriangle, Clock3, Layers, Link2, ShieldCheck, Waypoints } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Badge } from "../../components/ui/Badge";
 import { Card } from "../../components/ui/Card";
@@ -133,6 +134,55 @@ function formatLatency(value: number): string {
     return `${seconds >= 10 ? seconds.toFixed(0) : seconds.toFixed(1)}s`;
   }
   return `${Math.round(value)}ms`;
+}
+
+function formatLeaseDuration(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) {
+    return "0ms";
+  }
+
+  if (value < 1000) {
+    return `${Math.round(value)}ms`;
+  }
+
+  const english = isEnglishLocale(getCurrentLocale());
+  const wholeSeconds = Math.floor(value / 1000);
+  const days = Math.floor(wholeSeconds / 86_400);
+  const hours = Math.floor((wholeSeconds % 86_400) / 3_600);
+  const minutes = Math.floor((wholeSeconds % 3_600) / 60);
+  const seconds = wholeSeconds % 60;
+  const parts: string[] = [];
+
+  if (english) {
+    if (days > 0) {
+      parts.push(`${days}d`);
+    }
+    if (hours > 0) {
+      parts.push(`${hours}h`);
+    }
+    if (days === 0 && minutes > 0) {
+      parts.push(`${minutes}m`);
+    }
+    if (days === 0 && hours === 0 && seconds > 0) {
+      parts.push(`${seconds}s`);
+    }
+    return parts.slice(0, 2).join(" ") || `${wholeSeconds}s`;
+  }
+
+  if (days > 0) {
+    parts.push(`${days} 天`);
+  }
+  if (hours > 0) {
+    parts.push(`${hours} 小时`);
+  }
+  if (days === 0 && minutes > 0) {
+    parts.push(`${minutes} 分钟`);
+  }
+  if (days === 0 && hours === 0 && seconds > 0) {
+    parts.push(`${seconds} 秒`);
+  }
+
+  return parts.slice(0, 2).join("") || `${wholeSeconds} 秒`;
 }
 
 function formatClock(iso: string): string {
@@ -806,7 +856,7 @@ export function PlatformMonitorPanel({ platform }: { platform: Platform }) {
       <div className="platform-monitor-kpi-grid">
         <Card className="platform-monitor-kpi-card">
           <div className="dashboard-kpi-icon lease">
-            <Layers size={16} />
+            <Layers size={18} />
           </div>
           <div>
             <p className="platform-monitor-kpi-label">{t("活跃租约")}</p>
@@ -817,7 +867,7 @@ export function PlatformMonitorPanel({ platform }: { platform: Platform }) {
 
         <Card className="platform-monitor-kpi-card">
           <div className="dashboard-kpi-icon shield">
-            <ShieldCheck size={16} />
+            <ShieldCheck size={18} />
           </div>
           <div>
             <p className="platform-monitor-kpi-label">{t("请求成功率")}</p>
@@ -830,22 +880,26 @@ export function PlatformMonitorPanel({ platform }: { platform: Platform }) {
 
         <Card className="platform-monitor-kpi-card">
           <div className="dashboard-kpi-icon gauge">
-            <Waypoints size={16} />
+            <Waypoints size={18} />
           </div>
           <div>
             <p className="platform-monitor-kpi-label">{t("可路由节点")}</p>
             <p className="platform-monitor-kpi-value">{formatCount(snapshotNodePool?.routable_node_count ?? 0)}</p>
             <p className="platform-monitor-kpi-sub">{t("出口 IP")} {formatCount(snapshotNodePool?.egress_ip_count ?? 0)}</p>
           </div>
+          <Link to={`/nodes?platform_id=${encodeURIComponent(platform.id)}`} className="platform-monitor-kpi-link">
+            <Link2 size={14} />
+            <span>{t("可路由节点")}</span>
+          </Link>
         </Card>
 
         <Card className="platform-monitor-kpi-card">
           <div className="dashboard-kpi-icon waves">
-            <Clock3 size={16} />
+            <Clock3 size={18} />
           </div>
           <div>
             <p className="platform-monitor-kpi-label">{t("租约 P50 存活时长")}</p>
-            <p className="platform-monitor-kpi-value">{formatLatency(latestP50LeaseMs)}</p>
+            <p className="platform-monitor-kpi-value">{formatLeaseDuration(latestP50LeaseMs)}</p>
             <p className="platform-monitor-kpi-sub">{t("历史租约时长统计")}</p>
           </div>
         </Card>
@@ -888,12 +942,12 @@ export function PlatformMonitorPanel({ platform }: { platform: Platform }) {
         <Card className="dashboard-panel">
           <div className="dashboard-panel-header">
             <h3>{t("租约存活分位趋势")}</h3>
-            <p>P1 / P5 / P50 (ms)</p>
+            <p>P1 / P5 / P50</p>
           </div>
           <TrendLineChart
             data={leaseLifetimeTrendData}
             emptyText={t("暂无租约生命周期数据")}
-            yTickFormatter={formatLatency}
+            yTickFormatter={formatLeaseDuration}
             lines={[
               { dataKey: "p1_ms", name: "P1", color: "#2d63d8" },
               { dataKey: "p5_ms", name: "P5", color: "#0f9d8b" },

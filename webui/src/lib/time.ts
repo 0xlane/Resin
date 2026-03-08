@@ -28,17 +28,37 @@ export function formatDateTime(input: string): string {
 }
 
 export function formatGoDuration(input: string, emptyLabel = "-"): string {
+  const english = isEnglish();
   const raw = input.trim();
   if (!raw) {
     return emptyLabel;
   }
 
-  const totalSeconds = parseGoDurationToSeconds(raw);
-  if (totalSeconds === null) {
+  const pattern = /(\d+(?:\.\d+)?)(h|m|s)/g;
+  let totalSeconds = 0;
+  let consumedLength = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(raw)) !== null) {
+    const value = Number(match[1]);
+    if (Number.isNaN(value)) {
+      return raw;
+    }
+
+    consumedLength += match[0].length;
+    if (match[2] === "h") {
+      totalSeconds += value * 3600;
+    } else if (match[2] === "m") {
+      totalSeconds += value * 60;
+    } else {
+      totalSeconds += value;
+    }
+  }
+
+  if (!consumedLength || consumedLength !== raw.length) {
     return raw;
   }
 
-  const english = isEnglish();
   const wholeSeconds = Math.floor(totalSeconds);
   if (wholeSeconds <= 0) {
     return english ? "0s" : "0 秒";
@@ -80,74 +100,6 @@ export function formatGoDuration(input: string, emptyLabel = "-"): string {
   }
 
   return parts.slice(0, 2).join("");
-}
-
-export function normalizeGoDurationInput(input: string): string {
-  const raw = input.trim();
-  if (!raw) {
-    return raw;
-  }
-
-  const totalSeconds = parseGoDurationToSeconds(raw);
-  if (totalSeconds === null) {
-    return raw;
-  }
-
-  const wholeSeconds = Math.floor(totalSeconds);
-  if (wholeSeconds <= 0) {
-    return "0s";
-  }
-
-  const hours = Math.floor(wholeSeconds / 3_600);
-  const minutes = Math.floor((wholeSeconds % 3_600) / 60);
-  const seconds = wholeSeconds % 60;
-  const parts: string[] = [];
-
-  if (hours > 0) {
-    parts.push(`${hours}h`);
-  }
-  if (minutes > 0) {
-    parts.push(`${minutes}m`);
-  }
-  if (seconds > 0 || !parts.length) {
-    parts.push(`${seconds}s`);
-  }
-
-  return parts.join("");
-}
-
-function parseGoDurationToSeconds(input: string): number | null {
-  const raw = input.trim();
-  if (!raw) {
-    return null;
-  }
-
-  const pattern = /(\d+(?:\.\d+)?)(h|m|s)/g;
-  let totalSeconds = 0;
-  let consumedLength = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(raw)) !== null) {
-    const value = Number(match[1]);
-    if (Number.isNaN(value)) {
-      return null;
-    }
-
-    consumedLength += match[0].length;
-    if (match[2] === "h") {
-      totalSeconds += value * 3600;
-    } else if (match[2] === "m") {
-      totalSeconds += value * 60;
-    } else {
-      totalSeconds += value;
-    }
-  }
-
-  if (!consumedLength || consumedLength !== raw.length) {
-    return null;
-  }
-
-  return totalSeconds;
 }
 
 export function formatRelativeTime(input: string | null | undefined, emptyLabel = "-"): string {

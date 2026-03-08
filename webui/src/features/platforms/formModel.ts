@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { normalizeGoDurationInput } from "../../lib/time";
 import { allocationPolicies, emptyAccountBehaviors, missActions } from "./constants";
 import { parseHeaderLines, parseLinesToList } from "./formParsers";
 import type { Platform, PlatformCreateInput, PlatformUpdateInput } from "./types";
@@ -70,7 +69,7 @@ export function platformToFormValues(platform: Platform): PlatformFormValues {
 
   return {
     name: platform.name,
-    sticky_ttl: normalizeGoDurationInput(platform.sticky_ttl),
+    sticky_ttl: platform.sticky_ttl,
     regex_filters_text: regexFilters.join("\n"),
     region_filters_text: regionFilters.join("\n"),
     reverse_proxy_miss_action: platform.reverse_proxy_miss_action,
@@ -93,19 +92,15 @@ function toPlatformPayloadBase(values: PlatformFormValues) {
 }
 
 export function toPlatformCreateInput(values: PlatformFormValues): PlatformCreateInput {
-  const stickyTTL = normalizeGoDurationInput(values.sticky_ttl?.trim() || "");
-
   return {
     ...toPlatformPayloadBase(values),
-    sticky_ttl: stickyTTL || undefined,
+    sticky_ttl: values.sticky_ttl?.trim() || undefined,
   };
 }
 
 export function toPlatformUpdateInput(values: PlatformFormValues): PlatformUpdateInput {
-  const stickyTTL = normalizeGoDurationInput(values.sticky_ttl?.trim() || "");
-
   return {
     ...toPlatformPayloadBase(values),
-    sticky_ttl: stickyTTL,
+    sticky_ttl: values.sticky_ttl?.trim() || "",
   };
 }
