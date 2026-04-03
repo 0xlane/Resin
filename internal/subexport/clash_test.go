@@ -74,6 +74,54 @@ func TestConvertSingboxToClash_Vless(t *testing.T) {
 	assertBool(t, clash, "tls", true)
 }
 
+func TestConvertSingboxToClash_VlessReality(t *testing.T) {
+	raw := json.RawMessage(`{
+		"type": "vless",
+		"tag": "tag",
+		"server": "202.61.254.66",
+		"server_port": 16029,
+		"uuid": "e23ce3b6-78c9-449f-956f-fe082204ab77",
+		"flow": "xtls-rprx-vision",
+		"tls": {
+			"enabled": true,
+			"insecure": false,
+			"server_name": "www.microsoft.com",
+			"utls": {"enabled": true, "fingerprint": "ios"},
+			"reality": {
+				"enabled": true,
+				"public_key": "YDGK6b4by0iyP14aCrqtKFCUtebgkVUQuY3oXtwKdTA",
+				"short_id": "b74d88c3"
+			}
+		}
+	}`)
+
+	clash, ok := ConvertSingboxToClash(raw, "Display Name")
+	if !ok {
+		t.Fatal("conversion failed")
+	}
+	assertString(t, clash, "type", "vless")
+	assertString(t, clash, "uuid", "e23ce3b6-78c9-449f-956f-fe082204ab77")
+	assertString(t, clash, "flow", "xtls-rprx-vision")
+	assertBool(t, clash, "tls", true)
+	assertBool(t, clash, "skip-cert-verify", false)
+	assertString(t, clash, "servername", "www.microsoft.com")
+	assertString(t, clash, "client-fingerprint", "ios")
+
+	realityOpts, ok := clash["reality-opts"].(map[string]any)
+	if !ok {
+		t.Fatal("reality-opts missing")
+	}
+	if realityOpts["public-key"] != "YDGK6b4by0iyP14aCrqtKFCUtebgkVUQuY3oXtwKdTA" {
+		t.Fatalf("reality-opts public-key: got %v", realityOpts["public-key"])
+	}
+	if realityOpts["short-id"] != "b74d88c3" {
+		t.Fatalf("reality-opts short-id: got %v", realityOpts["short-id"])
+	}
+	if _, exists := clash["network"]; exists {
+		t.Fatalf("default tcp network should be omitted, got %v", clash["network"])
+	}
+}
+
 func TestConvertSingboxToClash_Trojan(t *testing.T) {
 	raw := json.RawMessage(`{
 		"type": "trojan",
@@ -138,6 +186,35 @@ func TestConvertSingboxToClash_Hysteria2(t *testing.T) {
 	assertString(t, clash, "obfs-password", "obfs-pass")
 }
 
+func TestConvertSingboxToClash_HysteriaAdvancedFields(t *testing.T) {
+	raw := json.RawMessage(`{
+		"type": "hysteria",
+		"tag": "tag",
+		"server": "hy.example.com",
+		"server_port": 443,
+		"auth_str": "auth-token",
+		"up": "100 Mbps",
+		"down": "200 Mbps",
+		"recv_window_conn": 12345,
+		"recv_window": 54321,
+		"disable_mtu_discovery": true,
+		"hop_interval": "30s",
+		"network": "udp",
+		"tls": {"enabled": true, "server_name": "hy.example.com"}
+	}`)
+
+	clash, ok := ConvertSingboxToClash(raw, "HY Node")
+	if !ok {
+		t.Fatal("conversion failed")
+	}
+	assertString(t, clash, "type", "hysteria")
+	assertString(t, clash, "auth-str", "auth-token")
+	assertUint(t, clash, "recv-window-conn", 12345)
+	assertUint(t, clash, "recv-window", 54321)
+	assertBool(t, clash, "disable-mtu-discovery", true)
+	assertString(t, clash, "protocol", "udp")
+}
+
 func TestConvertSingboxToClash_Socks(t *testing.T) {
 	raw := json.RawMessage(`{
 		"type": "socks",
@@ -165,6 +242,12 @@ func TestConvertSingboxToClash_Wireguard(t *testing.T) {
 		"private_key": "priv-key",
 		"peer_public_key": "pub-key",
 		"local_address": ["10.0.0.2/32", "fd00::2/128"],
+		"peers": [{
+			"server": "wg.example.com",
+			"server_port": 51820,
+			"public_key": "pub-key",
+			"allowed_ips": ["10.0.0.0/24", "fd00::/64"]
+		}],
 		"reserved": [1, 2, 3],
 		"mtu": 1420
 	}`)
@@ -178,6 +261,13 @@ func TestConvertSingboxToClash_Wireguard(t *testing.T) {
 	assertString(t, clash, "public-key", "pub-key")
 	assertString(t, clash, "ip", "10.0.0.2/32")
 	assertString(t, clash, "ipv6", "fd00::2/128")
+	allowedIPs, ok := clash["allowed-ips"].([]string)
+	if !ok {
+		t.Fatalf("allowed-ips missing or wrong type: %T", clash["allowed-ips"])
+	}
+	if len(allowedIPs) != 2 || allowedIPs[0] != "10.0.0.0/24" || allowedIPs[1] != "fd00::/64" {
+		t.Fatalf("allowed-ips: got %v", allowedIPs)
+	}
 }
 
 func TestConvertSingboxToClash_Tuic(t *testing.T) {
@@ -276,6 +366,36 @@ func TestConvertSingboxToClash_GrpcTransport(t *testing.T) {
 	}
 	if grpcOpts["grpc-service-name"] != "my-grpc" {
 		t.Fatalf("grpc-service-name: got %v", grpcOpts["grpc-service-name"])
+	}
+}
+
+func TestConvertSingboxToClash_WSEarlyDataHeader(t *testing.T) {
+	raw := json.RawMessage(`{
+		"type": "vmess",
+		"tag": "tag",
+		"server": "example.com",
+		"server_port": 443,
+		"uuid": "uuid",
+		"security": "auto",
+		"alter_id": 0,
+		"transport": {
+			"type": "ws",
+			"path": "/ws",
+			"max_early_data": 2048,
+			"early_data_header_name": "X-ED"
+		}
+	}`)
+
+	clash, ok := ConvertSingboxToClash(raw, "node")
+	if !ok {
+		t.Fatal("conversion failed")
+	}
+	wsOpts, ok := clash["ws-opts"].(map[string]any)
+	if !ok {
+		t.Fatal("ws-opts missing")
+	}
+	if wsOpts["path"] != "/ws?ed=2048&eh=X-ED" {
+		t.Fatalf("ws-opts path: got %v", wsOpts["path"])
 	}
 }
 

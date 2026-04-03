@@ -126,6 +126,7 @@ func reverseVlessToClash(obj map[string]any, server string, port uint64) (map[st
 		clash["flow"] = flow
 	}
 	reverseTLSToClash(obj, clash, "tls")
+	reverseVLESSRealityToClash(obj, clash)
 	reverseTransportToClash(obj, clash)
 	return clash, true
 }
@@ -217,6 +218,15 @@ func reverseHysteriaToClash(obj map[string]any, server string, port uint64) (map
 	if ports := getStringSlice(obj, "server_ports"); len(ports) > 0 {
 		clash["ports"] = strings.Join(ports, ",")
 	}
+	if recvWindowConn := getNumber(obj, "recv_window_conn"); recvWindowConn > 0 {
+		clash["recv-window-conn"] = recvWindowConn
+	}
+	if recvWindow := getNumber(obj, "recv_window"); recvWindow > 0 {
+		clash["recv-window"] = recvWindow
+	}
+	if v := getBoolPtr(obj, "disable_mtu_discovery"); v != nil {
+		clash["disable-mtu-discovery"] = *v
+	}
 	if hopInterval := getString(obj, "hop_interval"); hopInterval != "" {
 		clash["hop-interval"] = hopInterval
 	}
@@ -300,6 +310,9 @@ func reverseWireguardToClash(obj map[string]any, server string, port uint64) (ma
 		if peers := getSlice(obj, "peers"); len(peers) > 0 {
 			if peer, ok := peers[0].(map[string]any); ok {
 				publicKey = getString(peer, "public_key")
+				if allowedIPs := getStringSlice(peer, "allowed_ips"); len(allowedIPs) > 0 {
+					clash["allowed-ips"] = allowedIPs
+				}
 				if preSharedKey := getString(peer, "pre_shared_key"); preSharedKey != "" {
 					clash["pre-shared-key"] = preSharedKey
 				}
@@ -309,6 +322,13 @@ func reverseWireguardToClash(obj map[string]any, server string, port uint64) (ma
 			}
 		}
 	} else {
+		if peers := getSlice(obj, "peers"); len(peers) > 0 {
+			if peer, ok := peers[0].(map[string]any); ok {
+				if allowedIPs := getStringSlice(peer, "allowed_ips"); len(allowedIPs) > 0 {
+					clash["allowed-ips"] = allowedIPs
+				}
+			}
+		}
 		if preSharedKey := getString(obj, "pre_shared_key"); preSharedKey != "" {
 			clash["pre-shared-key"] = preSharedKey
 		}
@@ -413,15 +433,14 @@ func reverseTLSToClash(obj map[string]any, clash map[string]any, _ string) {
 	if tlsObj == nil {
 		return
 	}
-	if !getBool(tlsObj, "enabled") {
-		return
+	if v := getBoolPtr(tlsObj, "enabled"); v != nil {
+		clash["tls"] = *v
 	}
-	clash["tls"] = true
 	if sni := getString(tlsObj, "server_name"); sni != "" {
 		clash["servername"] = sni
 	}
-	if getBool(tlsObj, "insecure") {
-		clash["skip-cert-verify"] = true
+	if v := getBoolPtr(tlsObj, "insecure"); v != nil {
+		clash["skip-cert-verify"] = *v
 	}
 	if alpn := getStringSlice(tlsObj, "alpn"); len(alpn) > 0 {
 		clash["alpn"] = alpn
@@ -471,6 +490,27 @@ func reverseTLSCertificateToClash(tlsObj map[string]any, clash map[string]any) {
 	}
 }
 
+func reverseVLESSRealityToClash(obj map[string]any, clash map[string]any) {
+	tlsObj := getMap(obj, "tls")
+	if tlsObj == nil {
+		return
+	}
+	reality := getMap(tlsObj, "reality")
+	if reality == nil {
+		return
+	}
+	realityOpts := map[string]any{}
+	if publicKey := getString(reality, "public_key"); publicKey != "" {
+		realityOpts["public-key"] = publicKey
+	}
+	if shortID := getString(reality, "short_id"); shortID != "" {
+		realityOpts["short-id"] = shortID
+	}
+	if len(realityOpts) > 0 {
+		clash["reality-opts"] = realityOpts
+	}
+}
+
 // reverseTransportToClash reverses setV2RayTransportFromClash.
 func reverseTransportToClash(obj map[string]any, clash map[string]any) {
 	transport := getMap(obj, "transport")
@@ -484,9 +524,12 @@ func reverseTransportToClash(obj map[string]any, clash map[string]any) {
 		clash["network"] = "ws"
 		wsOpts := map[string]any{}
 		if path := getString(transport, "path"); path != "" {
-			// Reconstruct early-data in path if present.
+			// Reconstruct early-data query parameters when present.
 			if ed := getNumber(transport, "max_early_data"); ed > 0 {
 				path = fmt.Sprintf("%s?ed=%d", path, uint64(ed))
+				if eh := getString(transport, "early_data_header_name"); eh != "" && eh != "Sec-WebSocket-Protocol" {
+					path = fmt.Sprintf("%s&eh=%s", path, eh)
+				}
 			}
 			wsOpts["path"] = path
 		}
