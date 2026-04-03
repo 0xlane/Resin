@@ -213,6 +213,28 @@ func TestInboundMux_EmptyProxyToken_RoutesNonActionTokenNamespaceToTokenAction(t
 	}
 }
 
+func TestInboundMux_RoutesTokenSubToTokenActionHandler(t *testing.T) {
+	mux := newInboundMux(
+		"tok",
+		tagHandler("forward", http.StatusOK),
+		tagHandler("reverse", http.StatusOK),
+		tagHandler("api", http.StatusOK),
+		tagHandler("token-action", http.StatusOK),
+	)
+
+	for _, path := range []string{"/tok/sub", "/tok/sub?platform=Default&format=clash"} {
+		t.Run(path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+
+			if rec.Header().Get("X-Route") != "token-action" {
+				t.Fatalf("expected token-action route for %s, got %q", path, rec.Header().Get("X-Route"))
+			}
+		})
+	}
+}
+
 func TestInboundMux_RoutesTokenInheritLeaseAction(t *testing.T) {
 	mux := newInboundMux(
 		"tok",

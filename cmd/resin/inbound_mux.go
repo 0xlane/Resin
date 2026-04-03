@@ -71,7 +71,7 @@ func shouldRouteTokenAPI(r *http.Request, proxyToken string) bool {
 		return false
 	}
 	apiSeg, ok := decodePathSegment(segments[1])
-	return ok && apiSeg == "api"
+	return ok && (apiSeg == "api" || apiSeg == "sub")
 }
 
 func shouldRejectReverseProxyByToken(r *http.Request, proxyToken string) bool {
