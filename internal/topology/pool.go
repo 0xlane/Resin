@@ -310,10 +310,56 @@ func (p *GlobalNodePool) MakeSubLookup() node.SubLookupFunc {
 	}
 }
 
+// infoTagKeywords are substrings commonly found in subscription-provider
+// informational placeholders that share a real node's config but should not be
+// preferred as the node's global display name.
+var infoTagKeywords = []string{
+	"流量", "到期", "过期", "重置", "剩余",
+	"套餐", "订阅", "官网", "建议", "购买",
+	"expire", "traffic", "remaining",
+}
+
+func isLikelyInfoTag(tag string) bool {
+	lower := strings.ToLower(strings.TrimSpace(tag))
+	if lower == "" {
+		return true
+	}
+	for _, kw := range infoTagKeywords {
+		if strings.Contains(lower, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+func pickBestDisplayTag(tags []string) string {
+	if len(tags) == 0 {
+		return ""
+	}
+
+	bestNonInfo := ""
+	bestAny := tags[0]
+	for _, tag := range tags {
+		if tag < bestAny {
+			bestAny = tag
+		}
+		if isLikelyInfoTag(tag) {
+			continue
+		}
+		if bestNonInfo == "" || tag < bestNonInfo {
+			bestNonInfo = tag
+		}
+	}
+	if bestNonInfo != "" {
+		return bestNonInfo
+	}
+	return bestAny
+}
+
 // ResolveNodeDisplayTag resolves a node hash to its display tag for request logs.
 // Rule:
 //  1. Prefer enabled subscriptions: among enabled holders, choose earliest-created.
-//  2. Within that subscription, choose lexicographically smallest tag.
+//  2. Within that subscription, prefer non-informational tags, then smallest tag.
 //  3. If no enabled holder exists, fallback to all holders with the same rule.
 //  4. Return "<SubscriptionName>/<Tag>".
 //
@@ -357,11 +403,9 @@ func (p *GlobalNodePool) ResolveNodeDisplayTag(hash node.Hash) string {
 				continue
 			}
 
-			smallestTag := tags[0]
-			for _, tag := range tags[1:] {
-				if tag < smallestTag {
-					smallestTag = tag
-				}
+			selectedTag := pickBestDisplayTag(tags)
+			if selectedTag == "" {
+				continue
 			}
 
 			createdAtNs := sub.CreatedAtNs
@@ -372,7 +416,7 @@ func (p *GlobalNodePool) ResolveNodeDisplayTag(hash node.Hash) string {
 				bestCreatedAtNs = createdAtNs
 				bestSubID = subID
 				bestSubName = sub.Name()
-				bestTag = smallestTag
+				bestTag = selectedTag
 			}
 		}
 

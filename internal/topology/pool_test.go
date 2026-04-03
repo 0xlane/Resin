@@ -490,7 +490,7 @@ func TestPool_PlatformLookupByIDAndName(t *testing.T) {
 	}
 }
 
-func TestPool_ResolveNodeDisplayTag_PreferEarliestEnabledSubscriptionThenMinTag(t *testing.T) {
+func TestPool_ResolveNodeDisplayTag_PreferEarliestEnabledSubscriptionThenMeaningfulTag(t *testing.T) {
 	subMgr := NewSubscriptionManager()
 
 	older := subscription.NewSubscription("sub-old", "Z-Provider", "url", true, false)
@@ -526,6 +526,60 @@ func TestPool_ResolveNodeDisplayTag_PreferEarliestEnabledSubscriptionThenMinTag(
 
 	if v := pool.ResolveNodeDisplayTag(node.Zero); v != "" {
 		t.Fatalf("ResolveNodeDisplayTag(unknown) = %q, want empty", v)
+	}
+}
+
+func TestPool_ResolveNodeDisplayTag_PreferMeaningfulTagOverInfoTag(t *testing.T) {
+	subMgr := NewSubscriptionManager()
+	sub := subscription.NewSubscription("sub-1", "Provider", "url", true, false)
+	sub.CreatedAtNs = 100
+	subMgr.Register(sub)
+
+	pool := newTestPool(subMgr)
+	raw := json.RawMessage(`{"type":"ss","server":"1.1.1.1"}`)
+	h := node.HashFromRawOptions(raw)
+
+	managed := subscription.NewManagedNodes()
+	managed.StoreNode(h, subscription.ManagedNode{Tags: []string{
+		"剩余流量：0",
+		"套餐到期：2026-05-21",
+		"建议：感到卡顿请切换到专线节点",
+		"🇸🇬【亚洲】新加坡01丨专线【3x】",
+		"🇸🇬【亚洲】新加坡02丨专线【3x】",
+	}})
+	sub.SwapManagedNodes(managed)
+	pool.AddNodeFromSub(h, raw, sub.ID)
+
+	got := pool.ResolveNodeDisplayTag(h)
+	want := "Provider/🇸🇬【亚洲】新加坡01丨专线【3x】"
+	if got != want {
+		t.Fatalf("ResolveNodeDisplayTag = %q, want %q", got, want)
+	}
+}
+
+func TestPool_ResolveNodeDisplayTag_AllInfoTags_FallbackToSmallestInfoTag(t *testing.T) {
+	subMgr := NewSubscriptionManager()
+	sub := subscription.NewSubscription("sub-1", "Provider", "url", true, false)
+	sub.CreatedAtNs = 100
+	subMgr.Register(sub)
+
+	pool := newTestPool(subMgr)
+	raw := json.RawMessage(`{"type":"ss","server":"1.1.1.1"}`)
+	h := node.HashFromRawOptions(raw)
+
+	managed := subscription.NewManagedNodes()
+	managed.StoreNode(h, subscription.ManagedNode{Tags: []string{
+		"剩余流量：0",
+		"套餐到期：2026-05-21",
+		"建议：感到卡顿请切换到专线节点",
+	}})
+	sub.SwapManagedNodes(managed)
+	pool.AddNodeFromSub(h, raw, sub.ID)
+
+	got := pool.ResolveNodeDisplayTag(h)
+	want := "Provider/剩余流量：0"
+	if got != want {
+		t.Fatalf("ResolveNodeDisplayTag = %q, want %q", got, want)
 	}
 }
 
