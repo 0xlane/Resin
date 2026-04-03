@@ -1,0 +1,151 @@
+name: Sync Upstream Release
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+env:
+  UPSTREAM_REPO: Resinat/Resin
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
+          token: ${{ secrets.ACTION_PAT }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/${{ env.UPSTREAM_REPO }}.git
+          git fetch upstream --no-tags
+
+      - name: Get latest upstream release tag
+        id: get_release
+        run: |
+          LATEST_TAG=$(curl -s https://api.github.com/repos/${{ env.UPSTREAM_REPO }}/releases/latest | jq -r .tag_name)
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Latest upstream release: $LATEST_TAG"
+
+      - name: Check if already synced
+        id: check_sync
+        run: |
+          TAG="${{ steps.get_release.outputs.latest_tag }}"
+          if [ "$TAG" = "null" ] || [ -z "$TAG" ]; then
+            echo "No release tag found"
+            echo "should_sync=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          TAG_COMMIT=$(git ls-remote upstream "refs/tags/$TAG" | awk '{print $1}')
+
+          if [ -n "$TAG_COMMIT" ]; then
+            DEREF_COMMIT=$(git ls-remote upstream "refs/tags/$TAG^{}" | awk '{print $1}')
+            if [ -n "$DEREF_COMMIT" ]; then
+              TAG_COMMIT="$DEREF_COMMIT"
+            fi
+          fi
+
+          if [ -z "$TAG_COMMIT" ]; then
+            echo "Could not find tag commit for $TAG"
+            echo "should_sync=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Upstream $TAG points to commit: $TAG_COMMIT"
+          echo "tag_commit=$TAG_COMMIT" >> $GITHUB_OUTPUT
+
+          if git merge-base --is-ancestor "$TAG_COMMIT" HEAD 2>/dev/null; then
+            echo "Already synced with $TAG"
+            echo "should_sync=false" >> $GITHUB_OUTPUT
+          else
+            echo "New release detected: $TAG"
+            echo "should_sync=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Merge upstream release
+        if: steps.check_sync.outputs.should_sync == 'true'
+        id: merge
+        run: |
+          TAG="${{ steps.get_release.outputs.latest_tag }}"
+          TAG_COMMIT="${{ steps.check_sync.outputs.tag_commit }}"
+
+          echo "Merging upstream release $TAG (commit: $TAG_COMMIT)..."
+
+          if git merge "$TAG_COMMIT" -m "Sync upstream release $TAG" --no-edit --allow-unrelated-histories; then
+            echo "Merge successful"
+            echo "merge_status=success" >> $GITHUB_OUTPUT
+          else
+            echo "Merge has conflicts, aborting..."
+            echo "merge_status=conflict" >> $GITHUB_OUTPUT
+            echo "Conflicting files:"
+            git diff --name-only --diff-filter=U
+            git merge --abort
+            exit 1
+          fi
+
+      - name: Push changes
+        if: steps.check_sync.outputs.should_sync == 'true' && steps.merge.outputs.merge_status == 'success'
+        run: |
+          git push origin master
+          echo "Pushed to master branch"
+
+      - name: Create tag
+        if: steps.check_sync.outputs.should_sync == 'true' && steps.merge.outputs.merge_status == 'success'
+        run: |
+          TAG="${{ steps.get_release.outputs.latest_tag }}"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+            echo "Created and pushed tag: $TAG"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          TAG="${{ steps.get_release.outputs.latest_tag }}"
+          TAG_COMMIT="${{ steps.check_sync.outputs.tag_commit }}"
+          SHOULD_SYNC="${{ steps.check_sync.outputs.should_sync }}"
+          MERGE_STATUS="${{ steps.merge.outputs.merge_status }}"
+
+          echo "## Upstream Sync Result" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Latest upstream release:** \`$TAG\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$SHOULD_SYNC" = "false" ]; then
+            echo "**Status:** Already up to date" >> $GITHUB_STEP_SUMMARY
+          elif [ "$MERGE_STATUS" = "success" ]; then
+            echo "**Status:** Sync successful" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Merged upstream release \`$TAG\` into master" >> $GITHUB_STEP_SUMMARY
+          elif [ "$MERGE_STATUS" = "conflict" ]; then
+            echo "**Status:** Conflicts detected, manual resolution needed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+            echo "git remote add upstream https://github.com/${{ env.UPSTREAM_REPO }}.git" >> $GITHUB_STEP_SUMMARY
+            echo "git fetch upstream --no-tags" >> $GITHUB_STEP_SUMMARY
+            echo "git merge $TAG_COMMIT -m 'Sync upstream release $TAG' --allow-unrelated-histories" >> $GITHUB_STEP_SUMMARY
+            echo "# resolve conflicts, then:" >> $GITHUB_STEP_SUMMARY
+            echo "git add ." >> $GITHUB_STEP_SUMMARY
+            echo "git commit" >> $GITHUB_STEP_SUMMARY
+            echo "git push origin master" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status:** Sync failed" >> $GITHUB_STEP_SUMMARY
+          fi
