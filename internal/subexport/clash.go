@@ -175,7 +175,7 @@ func reverseHysteria2ToClash(obj map[string]any, server string, port uint64) (ma
 	}
 	reverseTLSFieldsInline(obj, clash)
 	if ports := getStringSlice(obj, "server_ports"); len(ports) > 0 {
-		clash["ports"] = strings.Join(ports, ",")
+		clash["ports"] = formatHysteriaPortListForClash(ports)
 	}
 	if up := getNumber(obj, "up_mbps"); up > 0 {
 		clash["up"] = up
@@ -216,7 +216,7 @@ func reverseHysteriaToClash(obj map[string]any, server string, port uint64) (map
 		clash["obfs"] = obfs
 	}
 	if ports := getStringSlice(obj, "server_ports"); len(ports) > 0 {
-		clash["ports"] = strings.Join(ports, ",")
+		clash["ports"] = formatHysteriaPortListForClash(ports)
 	}
 	if recvWindowConn := getNumber(obj, "recv_window_conn"); recvWindowConn > 0 {
 		clash["recv-window-conn"] = recvWindowConn
@@ -620,6 +620,17 @@ func reverseDomainStrategy(ds string) string {
 	default:
 		return ""
 	}
+}
+
+func formatHysteriaPortListForClash(ports []string) string {
+	if len(ports) == 0 {
+		return ""
+	}
+	formatted := make([]string, 0, len(ports))
+	for _, port := range ports {
+		formatted = append(formatted, strings.ReplaceAll(port, ":", "-"))
+	}
+	return strings.Join(formatted, ",")
 }
 
 // --- JSON accessor helpers ---

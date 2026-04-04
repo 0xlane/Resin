@@ -170,6 +170,7 @@ func TestConvertSingboxToClash_Hysteria2(t *testing.T) {
 		"server": "hy2.example.com",
 		"server_port": 443,
 		"password": "hy2-pass",
+		"server_ports": ["20000:50000"],
 		"up_mbps": 100,
 		"down_mbps": 200,
 		"tls": {"enabled": true, "server_name": "hy2.example.com"},
@@ -182,6 +183,7 @@ func TestConvertSingboxToClash_Hysteria2(t *testing.T) {
 	}
 	assertString(t, clash, "type", "hysteria2")
 	assertString(t, clash, "password", "hy2-pass")
+	assertString(t, clash, "ports", "20000-50000")
 	assertString(t, clash, "obfs", "salamander")
 	assertString(t, clash, "obfs-password", "obfs-pass")
 }
@@ -195,6 +197,7 @@ func TestConvertSingboxToClash_HysteriaAdvancedFields(t *testing.T) {
 		"auth_str": "auth-token",
 		"up": "100 Mbps",
 		"down": "200 Mbps",
+		"server_ports": ["30000:40000"],
 		"recv_window_conn": 12345,
 		"recv_window": 54321,
 		"disable_mtu_discovery": true,
@@ -209,6 +212,7 @@ func TestConvertSingboxToClash_HysteriaAdvancedFields(t *testing.T) {
 	}
 	assertString(t, clash, "type", "hysteria")
 	assertString(t, clash, "auth-str", "auth-token")
+	assertString(t, clash, "ports", "30000-40000")
 	assertUint(t, clash, "recv-window-conn", 12345)
 	assertUint(t, clash, "recv-window", 54321)
 	assertBool(t, clash, "disable-mtu-discovery", true)
