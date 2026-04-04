@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/Resinat/Resin/internal/node"
 	"github.com/Resinat/Resin/internal/platform"
@@ -84,6 +86,7 @@ func formatClashOutput(items []nodeItem) (string, []byte, error) {
 	if err != nil {
 		return "", nil, fmt.Errorf("marshal clash yaml: %w", err)
 	}
+	body = []byte(unescapeYAMLUnicode(string(body)))
 	return "text/yaml; charset=utf-8", body, nil
 }
 
@@ -99,4 +102,31 @@ func formatSingBoxOutput(items []nodeItem) (string, []byte, error) {
 		return "", nil, fmt.Errorf("marshal singbox json: %w", err)
 	}
 	return "application/json; charset=utf-8", body, nil
+}
+
+func unescapeYAMLUnicode(s string) string {
+	var out strings.Builder
+	for i := 0; i < len(s); {
+		if i+10 <= len(s) && s[i] == '\\' && s[i+1] == 'U' {
+			quoted := "\"" + s[i:i+10] + "\""
+			unq, err := strconv.Unquote(quoted)
+			if err == nil && unq != "" {
+				out.WriteString(unq)
+				i += 10
+				continue
+			}
+		}
+		if i+6 <= len(s) && s[i] == '\\' && s[i+1] == 'u' {
+			quoted := "\"" + s[i:i+6] + "\""
+			unq, err := strconv.Unquote(quoted)
+			if err == nil && unq != "" {
+				out.WriteString(unq)
+				i += 6
+				continue
+			}
+		}
+		out.WriteByte(s[i])
+		i++
+	}
+	return out.String()
 }
