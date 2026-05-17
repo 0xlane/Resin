@@ -36,9 +36,11 @@ export type EnvConfig = {
   default_platform_allocation_policy: string;
   probe_timeout: string;
   resource_fetch_timeout: string;
+  node_dns_upstreams: string[] | null;
   proxy_transport_max_idle_conns: number;
   proxy_transport_max_idle_conns_per_host: number;
   proxy_transport_idle_conn_timeout: string;
+  proxy_bypass_rules: string[] | null;
   request_log_queue_size: number;
   request_log_queue_flush_batch_size: number;
   request_log_queue_flush_interval: string;

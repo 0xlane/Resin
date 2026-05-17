@@ -387,6 +387,7 @@ const EXACT_ZH_TO_EN: Record<string, string> = {
   "可查看数据库状态并进行 IP 查询。": "View database status and run IP lookups.",
   "可观测性指标": "Observability metrics",
   "空闲连接超时时间": "Idle connection timeout",
+  "代理直连目标": "Direct proxy targets",
   "控制面最大请求体": "Control-plane max request body",
   "快速定位异常节点并进行探测处理。":
     "Quickly locate abnormal nodes and probe them.",
@@ -481,6 +482,7 @@ const EXACT_ZH_TO_EN: Record<string, string> = {
     "Rebuild available nodes for this platform without changing configuration.",
   "状态存储目录": "State storage directory",
   "资源获取超时时间": "Resource fetch timeout",
+  "节点 DNS 上游": "Node DNS upstreams",
   "总请求数 / 成功请求数": "Total requests / successful requests",
   "租期保留时间": "Lease retention window",
   "租期抽样间隔": "Lease sampling interval",
@@ -514,6 +516,9 @@ const EXACT_ZH_TO_EN: Record<string, string> = {
     "After disabling a subscription, related nodes will not participate in platform routing, health statistics, or automatic probing.",
   "临时订阅的非健康节点会在一段时间后被自动删除。订阅本身不会被删除。":
     "Unhealthy nodes in temporary subscriptions will be auto-removed after a delay. The subscription itself will not be deleted.",
+  "存活节点增量模式": "Incremental Alive Nodes",
+  "开启后刷新时保留当前仍存活的旧节点，仅清理失效旧节点，并合并新订阅内容；关闭后仅保留刷新后的订阅内容。":
+    "When enabled, refresh keeps existing old nodes that are still alive, removes only stale old nodes, and merges the new subscription content. When disabled, only the refreshed subscription content is kept.",
   "开始测试": "Start test",
   "例如 12h": "e.g. 12h",
   "例如 168h": "e.g. 168h",
@@ -534,6 +539,10 @@ const EXACT_ZH_TO_EN: Record<string, string> = {
     "Platform name cannot contain .:|/\\@?#%~, spaces, tabs, newlines, or carriage returns, and cannot be a reserved name.",
   "平台详情板块": "Platform detail sections",
   "平台运行态趋势和快照": "Platform runtime trends and snapshots",
+  "请求失败熔断": "Request failure circuit breaker",
+  "禁用请求失败熔断": "Disable request failure circuit breaker",
+  "开启后，此平台的代理请求失败不会增加节点熔断计数；主动探测不受影响。":
+    "When enabled, proxy request failures from this platform do not increase node circuit-breaker counts; active probes are unchanged.",
   "请求日志详情": "Request log details",
   "请选择要编辑的订阅": "Please select a subscription to edit",
   "删除后该规则将不再生效。": "After deletion, this rule will no longer take effect.",
@@ -600,6 +609,8 @@ const EXACT_ZH_TO_EN: Record<string, string> = {
   "节点详情 {{name}}": "Node details {{name}}",
   "静态配置加载失败": "Failed to load static config",
   "开启": "On",
+  "已开启": "On",
+  "已关闭": "Off",
   "平台 {{name}} 创建成功": "Platform {{name}} created",
   "平台 {{name}} 已更新": "Platform {{name}} updated",
   "平台 {{name}} 已删除": "Platform {{name}} deleted",
