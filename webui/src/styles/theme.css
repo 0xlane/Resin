@@ -786,6 +786,101 @@ a {
   padding: 0;
 }
 
+.platform-access-section {
+  gap: 16px;
+}
+
+.platform-access-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.platform-access-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.platform-access-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.platform-access-group h5 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.platform-access-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.platform-access-field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.platform-access-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.platform-access-field-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.platform-access-field-body {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.platform-access-value {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.platform-access-copy-btn {
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+@media (max-width: 640px) {
+  .platform-access-field-body {
+    flex-direction: column;
+  }
+
+  .platform-access-value {
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+}
+
 .nodes-page {
   display: flex;
   flex-direction: column;
@@ -2631,6 +2726,91 @@ a {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.platform-ops-tabpanel {
+  gap: 18px;
+}
+
+.platform-ops-section,
+.platform-lease-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.platform-lease-head {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.platform-lease-head>div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.platform-lease-head .btn {
+  flex-shrink: 0;
+}
+
+.platform-lease-table-wrap {
+  margin-top: 0;
+  max-height: 420px;
+}
+
+.data-table-leases {
+  min-width: 900px;
+}
+
+.platform-lease-table-wrap .data-table tbody tr {
+  cursor: default;
+}
+
+.lease-account-cell {
+  display: block;
+  max-width: 180px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 700;
+  color: #173f74;
+}
+
+.lease-node-cell {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 260px;
+}
+
+.lease-node-cell strong,
+.lease-node-cell small {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lease-node-cell strong {
+  font-size: 13px;
+  color: #253d5f;
+}
+
+.lease-node-cell small {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.lease-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .platform-op-item {
