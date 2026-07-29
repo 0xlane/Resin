@@ -2,11 +2,9 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -20,6 +18,7 @@ import (
 	"github.com/Resinat/Resin/internal/config"
 	"github.com/Resinat/Resin/internal/geoip"
 	"github.com/Resinat/Resin/internal/metrics"
+	"github.com/Resinat/Resin/internal/model"
 	"github.com/Resinat/Resin/internal/netutil"
 	"github.com/Resinat/Resin/internal/node"
 	"github.com/Resinat/Resin/internal/proxy"
@@ -31,22 +30,18 @@ import (
 )
 
 type resinApp struct {
-	envCfg         *config.EnvConfig
-	runtimeCfg     *atomic.Pointer[config.RuntimeConfig]
-	accountMatcher *proxy.AccountMatcherRuntime
-	geoSvc         *geoip.Service
-	topoRuntime    *topologyRuntime
-	flushWorker    *state.CacheFlushWorker
-	metricsDB      *metrics.MetricsRepo
-	metricsManager *metrics.Manager
-	requestlogRepo *requestlog.Repo
-	requestlogSvc  *requestlog.Service
-	inboundSrv     interface {
-		Serve(net.Listener) error
-		Shutdown(context.Context) error
-	}
-	inboundLn     net.Listener
-	transportPool *proxy.OutboundTransportPool
+	envCfg          *config.EnvConfig
+	runtimeCfg      *atomic.Pointer[config.RuntimeConfig]
+	accountMatcher  *proxy.AccountMatcherRuntime
+	geoSvc          *geoip.Service
+	topoRuntime     *topologyRuntime
+	flushWorker     *state.CacheFlushWorker
+	metricsDB       *metrics.MetricsRepo
+	metricsManager  *metrics.Manager
+	requestlogRepo  *requestlog.Repo
+	requestlogSvc   *requestlog.Service
+	endpointManager *endpointRuntimeManager
+	transportPool   *proxy.OutboundTransportPool
 }
 
 func run() error {
@@ -459,19 +454,41 @@ func (a *resinApp) buildNetworkServers(engine *state.StateEngine) error {
 		ProxyBypassRules: a.envCfg.ProxyBypassRules,
 	})
 
-	inboundHandler := newInboundMux(
+	endpointManager := newEndpointRuntimeManager(
+		a.envCfg.ListenAddress,
 		a.envCfg.ProxyToken,
 		forwardProxy,
 		reverseProxy,
 		apiSrv.Handler(),
 		tokenActionHandler,
+		socks5Inbound,
+		a.metricsManager,
 	)
-	inboundLn, err := net.Listen("tcp", formatListenAddress(a.envCfg.ListenAddress, a.envCfg.ResinPort))
-	if err != nil {
-		return fmt.Errorf("resin server listen: %w", err)
+	cpService.EndpointRuntime = endpointManager
+	defaultEndpoint := model.Endpoint{
+		ID:               service.DefaultEndpointID,
+		Port:             a.envCfg.ResinPort,
+		AllowManagement:  true,
+		AllowProxy:       true,
+		AllowHTTPForward: true,
+		AllowHTTPReverse: true,
+		AllowSOCKS5:      a.envCfg.AuthVersion == config.AuthVersionV1,
 	}
-	a.inboundLn = proxy.NewCountingListener(inboundLn, a.metricsManager)
-	a.inboundSrv = newInboundDemuxServer(&http.Server{Handler: inboundHandler}, socks5Inbound)
+	if err := endpointManager.ApplyEndpoint(defaultEndpoint); err != nil {
+		return fmt.Errorf("default endpoint listen: %w", err)
+	}
+	customEndpoints, err := engine.ListEndpoints()
+	if err != nil {
+		endpointManager.RemoveEndpoint(service.DefaultEndpointID)
+		return fmt.Errorf("load endpoints: %w", err)
+	}
+	for _, endpoint := range customEndpoints {
+		if err := endpointManager.ApplyEndpoint(endpoint); err != nil {
+			endpointManager.RecordEndpointError(endpoint, err)
+			log.Printf("Endpoint %s on port %d unavailable: %v", endpoint.ID, endpoint.Port, err)
+		}
+	}
+	a.endpointManager = endpointManager
 
 	return nil
 }
@@ -503,28 +520,12 @@ func (a *resinApp) buildProxyEvents() proxy.ConfigAwareEventEmitter {
 }
 
 func (a *resinApp) startServers() <-chan error {
-	serverErrCh := make(chan error, 1)
-	reportServerErr := func(name string, err error) {
-		if err == nil || errors.Is(err, http.ErrServerClosed) {
-			return
-		}
-		wrapped := fmt.Errorf("%s: %w", name, err)
-		select {
-		case serverErrCh <- wrapped:
-		default:
-		}
-	}
-
-	go func() {
-		log.Printf(
-			"Resin server starting on %s (%s)",
-			formatListenAddress(a.envCfg.ListenAddress, a.envCfg.ResinPort),
-			inboundProtocolsStartupLabel(a.envCfg.AuthVersion),
-		)
-		reportServerErr("resin server", a.inboundSrv.Serve(a.inboundLn))
-	}()
-
-	return serverErrCh
+	log.Printf(
+		"Resin default endpoint starting on %s (%s)",
+		formatListenAddress(a.envCfg.ListenAddress, a.envCfg.ResinPort),
+		inboundProtocolsStartupLabel(a.envCfg.AuthVersion),
+	)
+	return a.endpointManager.Start()
 }
 
 func waitForShutdown(serverErrCh <-chan error) error {
@@ -551,7 +552,7 @@ func formatListenURL(listenAddress string, port int) string {
 }
 
 func (a *resinApp) shutdown(ctx context.Context) {
-	if err := a.inboundSrv.Shutdown(ctx); err != nil {
+	if err := a.endpointManager.Shutdown(ctx); err != nil {
 		log.Printf("Server shutdown error: %v", err)
 	}
 	log.Println("Resin server stopped")

@@ -126,6 +126,57 @@ func TestSocks5Inbound_EmptyTokenFallsBackToNoAuth(t *testing.T) {
 	<-done
 }
 
+func TestSocks5Inbound_RequiredAuthInfoRejectsNoAuth(t *testing.T) {
+	inbound := NewSocks5Inbound(Socks5InboundConfig{AuthVersion: string(config.AuthVersionV1)})
+	clientConn, serverConn := net.Pipe()
+	done := make(chan struct{})
+	ctx := ContextWithInboundPolicy(context.Background(), InboundPolicy{RequireProxyAuthInfo: true})
+	go func() {
+		defer close(done)
+		inbound.ServeConnContext(ctx, serverConn)
+	}()
+
+	writeAll(t, clientConn, []byte{socks5Version, 1, socks5MethodNoAuth})
+	if got := readExactly(t, clientConn, 2); got[1] != socks5MethodNoAcceptable {
+		t.Fatalf("selected method: got %d, want %d", got[1], socks5MethodNoAcceptable)
+	}
+	_ = clientConn.Close()
+	<-done
+}
+
+func TestSocks5Inbound_RequiredAuthInfoRejectsEmptyCredentials(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		username string
+		password string
+	}{
+		{name: "empty username", password: "unused"},
+		{name: "empty password", username: "platform.account"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			inbound := NewSocks5Inbound(Socks5InboundConfig{AuthVersion: string(config.AuthVersionV1)})
+			clientConn, serverConn := net.Pipe()
+			done := make(chan struct{})
+			ctx := ContextWithInboundPolicy(context.Background(), InboundPolicy{RequireProxyAuthInfo: true})
+			go func() {
+				defer close(done)
+				inbound.ServeConnContext(ctx, serverConn)
+			}()
+
+			writeAll(t, clientConn, []byte{socks5Version, 1, socks5MethodUserPass})
+			if got := readExactly(t, clientConn, 2); got[1] != socks5MethodUserPass {
+				t.Fatalf("selected method: got %d, want %d", got[1], socks5MethodUserPass)
+			}
+			writeAll(t, clientConn, socks5UserPassPacket(tt.username, tt.password))
+			if got := readExactly(t, clientConn, 2); got[1] != socks5UserPassStatusFailure {
+				t.Fatalf("auth status: got %d, want %d", got[1], socks5UserPassStatusFailure)
+			}
+			_ = clientConn.Close()
+			<-done
+		})
+	}
+}
+
 func TestSocks5Inbound_EmptyTokenUserPassAllowsAnyPassword(t *testing.T) {
 	inbound := NewSocks5Inbound(Socks5InboundConfig{
 		AuthVersion: string(config.AuthVersionV1),

@@ -28,6 +28,7 @@ It helps shield your services from unstable underlying proxy nodes by aggregatin
 - **Smart scheduling and circuit breaking**: Fully automated **passive + active** health checks, outbound IP probing, and latency analysis to remove bad nodes precisely. Uses P2C plus domain-aware latency-weighted scoring for optimal node selection.
 - **Business-friendly sticky proxying**: Keeps the same business account bound to a stable outbound IP. If a node fails, Resin seamlessly switches to another node with the same IP.
 - **Multiple access modes**: Supports HTTP forward proxy, SOCKS5 forward proxy, and URL-based reverse proxy for different clients and integration styles.
+- **Multiple inbound endpoints**: Add hot-reloaded listening ports in the WebUI and independently control admin-console, HTTP forward, HTTP reverse, and SOCKS5 access on each port.
 - **Observability**: Detailed metrics and logs, plus a visual Web UI. Includes complete structured request logs for querying and auditing by platform, account, target site, and more.
 - **Simple and powerful**: Works out of the box with default settings, while still offering deep customization for enterprise-grade needs.
 - **Cross-subscription deduplication**: Automatically merges identical nodes from different subscriptions and shares their health state.
@@ -95,6 +96,8 @@ services:
 ```
 
 Run `docker compose up -d` to start the service.
+
+Custom endpoint ports must also be reachable from outside the container. Docker cannot add published ports to an already-running container, so pre-publish the required port range in `ports` (for example `"2300-2399:2300-2399"`) or use host networking where appropriate.
 
 *(If you don't want Docker, jump to [Other Deployment Options](#other-deployment-options).)*
 

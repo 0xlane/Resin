@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Resinat/Resin/internal/config"
 	"github.com/Resinat/Resin/internal/model"
 	"github.com/Resinat/Resin/internal/node"
 	"github.com/Resinat/Resin/internal/platform"
@@ -283,6 +284,41 @@ func TestForwardProxy_Authentication_DisabledWhenProxyTokenEmpty(t *testing.T) {
 			}
 			if plat != "" || acct != "" {
 				t.Fatalf("expected empty identity, got plat=%q acct=%q", plat, acct)
+			}
+		})
+	}
+}
+
+func TestForwardProxy_Authentication_RequiredInfoWithEmptyToken(t *testing.T) {
+	rawCredential := func(raw string) string {
+		return "Basic " + base64.StdEncoding.EncodeToString([]byte(raw))
+	}
+
+	for _, authVersion := range []string{"", "V1"} {
+		t.Run(authVersion, func(t *testing.T) {
+			fp := &ForwardProxy{token: "", authVersion: config.AuthVersion(authVersion), events: NoOpEventEmitter{}}
+			tests := []struct {
+				name    string
+				auth    string
+				wantErr *ProxyError
+			}{
+				{name: "missing", wantErr: ErrAuthRequired},
+				{name: "malformed", auth: "Basic %%%", wantErr: ErrAuthRequired},
+				{name: "empty", auth: rawCredential(":"), wantErr: ErrAuthRequired},
+				{name: "identity", auth: rawCredential("platform:account")},
+			}
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					req := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
+					req = req.WithContext(ContextWithInboundPolicy(req.Context(), InboundPolicy{RequireProxyAuthInfo: true}))
+					if tt.auth != "" {
+						req.Header.Set("Proxy-Authorization", tt.auth)
+					}
+					_, _, err := fp.authenticate(req)
+					if err != tt.wantErr {
+						t.Fatalf("authenticate error = %v, want %v", err, tt.wantErr)
+					}
+				})
 			}
 		})
 	}

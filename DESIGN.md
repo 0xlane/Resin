@@ -56,9 +56,13 @@
 2. `V1` 启动前置校验：
    * `RESIN_PROXY_TOKEN` 非空时不能包含 `.:|/\@?#%~`，且不能包含空格、tab、换行、回车。
    * 读取数据库中全部 Platform 名称并按 V1 规则校验；若存在历史不合规名称，拒绝启动并提示先以 `LEGACY_V0` 启动后重命名再切回 `V1`。
-3. 统一入站端口：
-   * `RESIN_PORT` 同时承载控制面 API、WebUI、HTTP 正向代理、SOCKS5 正向代理与反向代理。
-   * 数据面在 TCP 层按首字节分流：首字节为 `0x05` 时进入 SOCKS5；其余流量进入 HTTP 入口，再由现有 HTTP 路由区分控制面 API、WebUI、HTTP 正向代理与反向代理。
+3. 入站接入点：
+   * `RESIN_PORT` 定义默认接入点。默认接入点同时承载控制面 API、WebUI、HTTP 正向代理、SOCKS5 正向代理与反向代理；它由环境变量生成，只读且不可删除。
+   * 用户可通过控制面增加持久化的自定义接入点。每个接入点定义唯一端口，并分别控制管理页面、代理总开关、HTTP 正向代理、HTTP 反向代理和 SOCKS5；配置增删改即时更新 listener，无需重启。
+   * 所有接入点共享控制面、路由池、节点池、出站 transport pool、日志与指标组件，仅 listener 和入站能力策略彼此独立。
+   * 每个接入点在 TCP 层按首字节分流：首字节为 `0x05` 时进入 SOCKS5；其余流量进入 HTTP 入口，再区分控制面 API、WebUI、HTTP 正向代理与反向代理。
+   * `/healthz` 在所有接入点始终可用；关闭管理页面时，其他控制面 API 与 WebUI 路径返回 404。
+   * 当 `RESIN_PROXY_TOKEN=""` 时，可为接入点启用“强制客户端发送代理认证信息”（默认关闭）。HTTP 正向代理缺少可解析且非空的 Basic 用户名时返回 407；SOCKS5 仅接受 `0x02`，并要求用户名和密码均非空，但不校验密码内容。此选项只用于强制携带身份，不构成安全认证。
 4. HTTP 正向代理：
    * `V1` 格式：`Proxy-Authorization: Basic Platform.Account:PROXY_TOKEN`（user=Platform.Account，pass=PROXY_TOKEN）；解析时先按最右侧 `:` 切 Token，再对左侧身份串按第一个出现的 `.` 或 `:` 切 `Platform` 与 `Account`。
    * `LEGACY_V0` 格式：`Proxy-Authorization: Basic PROXY_TOKEN:Platform:Account`（user=PROXY_TOKEN，pass=Platform:Account）；`pass` 按第一个 `:` 切 `Platform` 与 `Account`。
@@ -1140,6 +1144,35 @@ Body（partial patch 示例）：
 * `400 INVALID_ARGUMENT`：空 patch、字段非法、类型错误、校验失败。
 
 返回：更新后的 config。
+
+### Endpoint
+
+默认接入点的 `id` 固定为 `default`、`source` 为 `environment`、`read_only=true`。自定义接入点使用 UUID，保存于 `state.db`。
+
+```json
+{
+  "id": "uuid|default",
+  "port": 2260,
+  "allow_management": true,
+  "allow_proxy": true,
+  "require_proxy_auth_info": false,
+  "allow_http_forward": true,
+  "allow_http_reverse": true,
+  "allow_socks5": true,
+  "source": "environment|database",
+  "read_only": false,
+  "status": "active|starting|inactive|error",
+  "last_error": ""
+}
+```
+
+* **GET** `/endpoints`：默认接入点置顶，其余按端口升序返回 `{ "items": [...] }`。
+* **POST** `/endpoints`：创建并立即启动自定义 listener。
+* **GET** `/endpoints/{endpoint_id}`：读取单个接入点。
+* **PATCH** `/endpoints/{endpoint_id}`：更新端口或能力；端口变更时先确认新 listener 可绑定，再关闭旧 listener。
+* **DELETE** `/endpoints/{endpoint_id}`：删除自定义接入点并关闭 listener。
+
+端口范围为 1-65535 且全局唯一；管理页面与代理至少启用一项；启用代理时至少启用一种代理协议。`allow_socks5=true` 仅允许用于 `RESIN_AUTH_VERSION=V1`。默认接入点拒绝 PATCH/DELETE。
 
 ### Platform
 
@@ -2282,7 +2315,7 @@ GeoIP 与订阅的下载都有错误重试的需求。
 * RESIN_STATE_DIR：配置目录。默认 /var/lib/resin
 * RESIN_LOG_DIR：日志目录。默认 /var/log/resin
 * RESIN_LISTEN_ADDRESS：Resin 统一监听地址。默认 `0.0.0.0`
-* RESIN_PORT：Resin 单端口（控制面 API + WebUI + HTTP 正向代理 + SOCKS5 正向代理 + 反向代理）。默认 2260
+* RESIN_PORT：Resin 默认接入点端口（控制面 API + WebUI + HTTP 正向代理 + SOCKS5 正向代理 + 反向代理）。默认 2260；该接入点只读，自定义接入点保存在 `state.db`。
 * RESIN_API_MAX_BODY_BYTES：控制面 API（`/api/*`）请求体最大字节数。超限返回 `413 PAYLOAD_TOO_LARGE`。仅作用于控制面，不作用于 HTTP 正向代理 / SOCKS5 正向代理 / 反向代理数据面。默认 1048576（1 MiB）。
 
 核心设置：
@@ -2395,6 +2428,7 @@ WebUI 分为登录态与控制台态。未登录时进入登录页；登录后�
 * 平台管理
 * 订阅管理
 * 节点池
+* 接入点
 * 请求头规则
 * 请求日志
 * 资源
@@ -2447,6 +2481,11 @@ WebUI 分为登录态与控制台态。未登录时进入登录页；登录后�
 中部为节点表格，展示节点标签、出口、延迟、探测时间、失败次数、状态、创建时间等，并支持分页。
 
 点击表格行打开节点详情 Drawer，展示节点状态、别名标签与运维操作（出口探测、延迟探测）。
+
+## 接入点
+接入点位于节点池之后。页面使用单列卡片列表，每行一个接入点；卡片按自然阅读顺序展示端口、监听地址、运行状态、已启用能力和代理认证策略，不在卡片中划分多列信息区。
+
+默认接入点显示只读锁定状态。自定义接入点提供编辑与删除图标操作；新建和编辑使用右侧 Drawer，包含端口、管理页面、代理总开关、协议开关及“强制客户端发送代理认证信息”。
 
 ## 请求头规则
 页面顶部工具栏包含搜索、新建、调试、刷新。

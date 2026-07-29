@@ -129,10 +129,17 @@ func (p *ForwardProxy) authenticateLegacy(r *http.Request) (string, string, *Pro
 	// 1) "platform:account" (two fields)
 	// 2) "token:platform:account" (legacy three-field shape)
 	if p.token == "" {
-		platName, account, ok := parseProxyAuthorizationIdentityWhenAuthDisabledLegacy(auth)
+		credential, ok := parseProxyAuthorizationCredentialLegacy(auth)
 		if !ok {
+			if requireProxyAuthInfo(r) {
+				return "", "", ErrAuthRequired
+			}
 			return "", "", nil
 		}
+		if requireProxyAuthInfo(r) && !hasBasicUserInfo(credential) {
+			return "", "", ErrAuthRequired
+		}
+		platName, account := parseLegacyAuthDisabledIdentityCredential(credential)
 		return platName, account, nil
 	}
 
@@ -174,7 +181,13 @@ func (p *ForwardProxy) authenticateV1(r *http.Request) (string, string, *ProxyEr
 	if p.token == "" {
 		credential, ok := parseProxyAuthorizationCredentialV1(auth)
 		if !ok {
+			if requireProxyAuthInfo(r) {
+				return "", "", ErrAuthRequired
+			}
 			return "", "", nil
+		}
+		if requireProxyAuthInfo(r) && !hasBasicUserInfo(credential) {
+			return "", "", ErrAuthRequired
 		}
 		platName, account := parseForwardCredentialV1WhenAuthDisabled(credential)
 		return platName, account, nil
@@ -189,6 +202,15 @@ func (p *ForwardProxy) authenticateV1(r *http.Request) (string, string, *ProxyEr
 		return "", "", ErrAuthFailed
 	}
 	return platName, account, nil
+}
+
+func requireProxyAuthInfo(r *http.Request) bool {
+	return r != nil && InboundPolicyFromContext(r.Context()).RequireProxyAuthInfo
+}
+
+func hasBasicUserInfo(credential string) bool {
+	separator := strings.LastIndexByte(credential, ':')
+	return separator > 0
 }
 
 func parseProxyAuthorizationIdentityWhenAuthDisabledLegacy(auth string) (platName string, account string, ok bool) {
