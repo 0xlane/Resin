@@ -9,18 +9,6 @@ import (
 	"github.com/Resinat/Resin/internal/proxy"
 )
 
-func newInboundMux(proxyToken string, forward, reverse, apiHandler, tokenActionHandler http.Handler) http.Handler {
-	return newEndpointInboundMux(func() model.Endpoint {
-		return model.Endpoint{
-			AllowManagement:  true,
-			AllowProxy:       true,
-			AllowHTTPForward: true,
-			AllowHTTPReverse: true,
-			AllowSOCKS5:      true,
-		}
-	}, proxyToken, forward, reverse, apiHandler, tokenActionHandler)
-}
-
 func newEndpointInboundMux(
 	currentEndpoint func() model.Endpoint,
 	proxyToken string,

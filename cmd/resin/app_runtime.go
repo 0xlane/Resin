@@ -18,7 +18,6 @@ import (
 	"github.com/Resinat/Resin/internal/config"
 	"github.com/Resinat/Resin/internal/geoip"
 	"github.com/Resinat/Resin/internal/metrics"
-	"github.com/Resinat/Resin/internal/model"
 	"github.com/Resinat/Resin/internal/netutil"
 	"github.com/Resinat/Resin/internal/node"
 	"github.com/Resinat/Resin/internal/proxy"
@@ -459,15 +458,7 @@ func (a *resinApp) buildNetworkServers(engine *state.StateEngine) error {
 		a.metricsManager,
 	)
 	cpService.EndpointRuntime = endpointManager
-	defaultEndpoint := model.Endpoint{
-		ID:               service.DefaultEndpointID,
-		Port:             a.envCfg.ResinPort,
-		AllowManagement:  true,
-		AllowProxy:       true,
-		AllowHTTPForward: true,
-		AllowHTTPReverse: true,
-		AllowSOCKS5:      true,
-	}
+	defaultEndpoint := service.NewDefaultEndpoint(a.envCfg.ResinPort)
 	if err := endpointManager.ApplyEndpoint(defaultEndpoint); err != nil {
 		return fmt.Errorf("default endpoint listen: %w", err)
 	}

@@ -9,7 +9,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
@@ -66,11 +66,6 @@ function newEndpointDraft(endpoints: Endpoint[]): EndpointDraft {
   };
 }
 
-function formatListenAddress(host: string | undefined, port: number): string {
-  const address = host?.trim() || "0.0.0.0";
-  return address.includes(":") && !address.startsWith("[") ? `[${address}]:${port}` : `${address}:${port}`;
-}
-
 function statusPresentation(status: EndpointStatus | string): {
   label: string;
   className: string;
@@ -99,7 +94,6 @@ function enabledCapabilities(endpoint: Endpoint): string[] {
 type EndpointEditorProps = {
   endpoint: Endpoint | null;
   draft: EndpointDraft;
-  proxyTokenSet: boolean;
   pending: boolean;
   onChange: (draft: EndpointDraft) => void;
   onClose: () => void;
@@ -109,7 +103,6 @@ type EndpointEditorProps = {
 function EndpointEditor({
   endpoint,
   draft,
-  proxyTokenSet,
   pending,
   onChange,
   onClose,
@@ -117,7 +110,6 @@ function EndpointEditor({
 }: EndpointEditorProps) {
   const { t } = useI18n();
   const editing = endpoint !== null;
-  const authInfoAvailable = !proxyTokenSet && draft.allow_proxy && (draft.allow_http_forward || draft.allow_socks5);
 
   const setProxyEnabled = (enabled: boolean) => {
     if (!enabled) {
@@ -152,10 +144,7 @@ function EndpointEditor({
     <div className="drawer-overlay" role="dialog" aria-modal="true" onClick={onClose}>
       <Card className="drawer-panel endpoint-drawer" onClick={(event) => event.stopPropagation()}>
         <div className="drawer-header">
-          <div>
-            <h3>{editing ? t("编辑接入点") : t("新建接入点")}</h3>
-            {editing ? <p>{formatListenAddress(undefined, endpoint.port)}</p> : null}
-          </div>
+          <h3>{editing ? t("编辑接入点") : t("新建接入点")}</h3>
           <Button variant="ghost" size="sm" className="endpoint-icon-button" onClick={onClose} title={t("关闭")}>
             <X size={16} />
           </Button>
@@ -224,21 +213,19 @@ function EndpointEditor({
             </div>
           ) : null}
 
-          <div className="endpoint-form-section">
-            <h4>{t("代理认证")}</h4>
-            <label className="endpoint-switch-row" htmlFor="endpoint-require-auth-info">
-              <span>
-                {t("强制客户端发送代理认证信息")}
-                {proxyTokenSet ? <small>{t("当前已配置 Proxy Token")}</small> : null}
-              </span>
-              <Switch
-                id="endpoint-require-auth-info"
-                checked={draft.require_proxy_auth_info}
-                disabled={!authInfoAvailable}
-                onChange={(event) => onChange({ ...draft, require_proxy_auth_info: event.target.checked })}
-              />
-            </label>
-          </div>
+          {draft.allow_proxy && (draft.allow_http_forward || draft.allow_socks5) ? (
+            <div className="endpoint-form-section">
+              <h4>{t("代理认证")}</h4>
+              <label className="endpoint-switch-row" htmlFor="endpoint-require-auth-info">
+                <span>{t("当系统未设定代理令牌时，也强制客户端发送代理认证信息")}</span>
+                <Switch
+                  id="endpoint-require-auth-info"
+                  checked={draft.require_proxy_auth_info}
+                  onChange={(event) => onChange({ ...draft, require_proxy_auth_info: event.target.checked })}
+                />
+              </label>
+            </div>
+          ) : null}
 
           <div className="endpoint-form-actions">
             <Button variant="secondary" onClick={onClose} disabled={pending}>
@@ -345,11 +332,6 @@ export function EndpointPage() {
     if (confirmed) deleteMutation.mutate(endpoint.id);
   };
 
-  const sortedEndpoints = useMemo(
-    () => [...endpoints].sort((a, b) => Number(b.id === "default") - Number(a.id === "default") || a.port - b.port),
-    [endpoints],
-  );
-
   return (
     <section className="endpoint-page">
       <header className="module-header endpoint-page-header">
@@ -380,13 +362,13 @@ export function EndpointPage() {
       ) : null}
 
       <div className="endpoint-list">
-        {sortedEndpoints.map((endpoint) => {
+        {endpoints.map((endpoint) => {
           const status = statusPresentation(endpoint.status);
           const capabilities = enabledCapabilities(endpoint);
           const authLabel = proxyTokenSet
             ? "Proxy Token 认证"
             : endpoint.require_proxy_auth_info
-              ? "强制客户端发送代理认证信息"
+              ? "当系统未设定代理令牌时，也强制客户端发送代理认证信息"
               : "代理免认证";
 
           return (
@@ -431,8 +413,6 @@ export function EndpointPage() {
                 </div>
               </div>
 
-              <p className="endpoint-address">{formatListenAddress(envQuery.data?.listen_address, endpoint.port)}</p>
-
               <div className="endpoint-capabilities" aria-label={t("已启用能力")}>
                 {capabilities.map((capability) => (
                   <span key={capability}>
@@ -459,7 +439,6 @@ export function EndpointPage() {
         <EndpointEditor
           endpoint={editingEndpoint}
           draft={draft}
-          proxyTokenSet={proxyTokenSet}
           pending={saveMutation.isPending}
           onChange={setDraft}
           onClose={closeEditor}

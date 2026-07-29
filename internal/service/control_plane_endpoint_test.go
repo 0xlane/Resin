@@ -57,6 +57,15 @@ func newEndpointTestService(t *testing.T, env *config.EnvConfig) (*ControlPlaneS
 
 func boolPointer(value bool) *bool { return &value }
 
+func TestNewDefaultEndpoint(t *testing.T) {
+	endpoint := NewDefaultEndpoint(0)
+	if endpoint.ID != DefaultEndpointID || endpoint.Port != 2260 ||
+		!endpoint.AllowManagement || !endpoint.AllowProxy ||
+		!endpoint.AllowHTTPForward || !endpoint.AllowHTTPReverse || !endpoint.AllowSOCKS5 {
+		t.Fatalf("default endpoint = %+v", endpoint)
+	}
+}
+
 func TestControlPlaneEndpoints_CRUDAndDefaultProtection(t *testing.T) {
 	cp, runtime := newEndpointTestService(t, &config.EnvConfig{
 		ResinPort:   2260,
@@ -127,20 +136,32 @@ func TestControlPlaneEndpoints_CRUDAndDefaultProtection(t *testing.T) {
 	}
 }
 
-func TestControlPlaneEndpoints_RejectUnavailableOptions(t *testing.T) {
-	t.Run("proxy auth info with configured token", func(t *testing.T) {
-		cp, _ := newEndpointTestService(t, &config.EnvConfig{
-			ResinPort:   2260,
-			ProxyToken:  "secret",
-			AuthVersion: config.AuthVersionV1,
-		})
-		_, err := cp.CreateEndpoint(CreateEndpointRequest{
-			Port:                 32030,
-			RequireProxyAuthInfo: boolPointer(true),
-		})
-		assertServiceErrorCode(t, err, "INVALID_ARGUMENT")
+func TestControlPlaneEndpoints_RequireAuthInfoCanBeConfiguredWithProxyToken(t *testing.T) {
+	cp, _ := newEndpointTestService(t, &config.EnvConfig{
+		ResinPort:   2260,
+		ProxyToken:  "secret",
+		AuthVersion: config.AuthVersionV1,
 	})
-
+	created, err := cp.CreateEndpoint(CreateEndpointRequest{
+		Port:                 32030,
+		RequireProxyAuthInfo: boolPointer(true),
+	})
+	if err != nil {
+		t.Fatalf("CreateEndpoint: %v", err)
+	}
+	if !created.RequireProxyAuthInfo {
+		t.Fatalf("require_proxy_auth_info = false, want true")
+	}
+	updated, err := cp.UpdateEndpoint(created.ID, json.RawMessage(`{
+		"port": 32031,
+		"require_proxy_auth_info": true
+	}`))
+	if err != nil {
+		t.Fatalf("UpdateEndpoint: %v", err)
+	}
+	if updated.Port != 32031 || !updated.RequireProxyAuthInfo {
+		t.Fatalf("updated endpoint = %+v", updated)
+	}
 }
 
 func TestControlPlaneEndpoints_ManagementOnlyDefaultsProxyProtocolsOff(t *testing.T) {

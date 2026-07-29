@@ -46,8 +46,8 @@ const EXACT_ZH_TO_EN: Record<string, string> = {
   "SOCKS5 代理": "SOCKS5 Proxy",
   "代理认证": "Proxy Authentication",
   "Proxy Token 认证": "Proxy Token Authentication",
-  "强制客户端发送代理认证信息": "Require Clients to Send Proxy Credentials",
-  "当前已配置 Proxy Token": "Proxy Token is currently configured",
+  "当系统未设定代理令牌时，也强制客户端发送代理认证信息":
+    "Require clients to send proxy credentials even when no system proxy token is configured",
   "端口必须是 1 到 65535 之间的整数": "Port must be an integer between 1 and 65535",
   "管理页面和代理至少启用一项": "Enable at least the admin console or proxy access",
   "至少启用一种代理协议": "Enable at least one proxy protocol",

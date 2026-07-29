@@ -10,5 +10,3 @@ CREATE TABLE IF NOT EXISTS endpoints (
     created_at_ns           INTEGER NOT NULL,
     updated_at_ns           INTEGER NOT NULL
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_endpoints_port ON endpoints(port);

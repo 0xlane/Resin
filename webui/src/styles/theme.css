@@ -774,17 +774,9 @@ a {
   color: var(--text-muted);
 }
 
-.endpoint-address,
 .endpoint-capabilities,
 .endpoint-auth-policy {
   margin-left: 17px;
-}
-
-.endpoint-address {
-  margin-top: 3px;
-  color: var(--text-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
 }
 
 .endpoint-capabilities {
@@ -3350,7 +3342,6 @@ a {
     margin-left: 16px;
   }
 
-  .endpoint-address,
   .endpoint-capabilities,
   .endpoint-auth-policy {
     margin-left: 16px;

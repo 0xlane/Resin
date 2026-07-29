@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -72,10 +71,10 @@ func boolOrDefault(value *bool, fallback bool) bool {
 	return *value
 }
 
-func (s *ControlPlaneService) defaultEndpoint() model.Endpoint {
-	port := 2260
-	if s != nil && s.EnvCfg != nil && s.EnvCfg.ResinPort != 0 {
-		port = s.EnvCfg.ResinPort
+// NewDefaultEndpoint builds the environment-defined, read-only endpoint policy.
+func NewDefaultEndpoint(port int) model.Endpoint {
+	if port == 0 {
+		port = 2260
 	}
 	return model.Endpoint{
 		ID:               DefaultEndpointID,
@@ -86,6 +85,14 @@ func (s *ControlPlaneService) defaultEndpoint() model.Endpoint {
 		AllowHTTPReverse: true,
 		AllowSOCKS5:      true,
 	}
+}
+
+func (s *ControlPlaneService) defaultEndpoint() model.Endpoint {
+	port := 0
+	if s != nil && s.EnvCfg != nil {
+		port = s.EnvCfg.ResinPort
+	}
+	return NewDefaultEndpoint(port)
 }
 
 func (s *ControlPlaneService) endpointResponse(endpoint model.Endpoint, source string, readOnly bool) EndpointResponse {
@@ -144,10 +151,6 @@ func (s *ControlPlaneService) validateEndpoint(endpoint model.Endpoint) *Service
 	return nil
 }
 
-func (s *ControlPlaneService) proxyTokenSet() bool {
-	return s != nil && s.EnvCfg != nil && s.EnvCfg.ProxyToken != ""
-}
-
 func (s *ControlPlaneService) ListEndpoints() ([]EndpointResponse, error) {
 	if s == nil || s.Engine == nil {
 		return nil, internal("endpoint service is not initialized", nil)
@@ -156,9 +159,6 @@ func (s *ControlPlaneService) ListEndpoints() ([]EndpointResponse, error) {
 	if err != nil {
 		return nil, internal("list endpoints", err)
 	}
-	sort.SliceStable(custom, func(i, j int) bool {
-		return custom[i].Port < custom[j].Port
-	})
 	result := make([]EndpointResponse, 0, len(custom)+1)
 	result = append(result, s.endpointResponse(s.defaultEndpoint(), "environment", true))
 	for _, endpoint := range custom {
@@ -206,9 +206,6 @@ func (s *ControlPlaneService) CreateEndpoint(req CreateEndpointRequest) (*Endpoi
 		AllowSOCKS5:          boolOrDefault(req.AllowSOCKS5, allowProxy),
 		CreatedAtNs:          now,
 		UpdatedAtNs:          now,
-	}
-	if req.RequireProxyAuthInfo != nil && *req.RequireProxyAuthInfo && s.proxyTokenSet() {
-		return nil, invalidArg("require_proxy_auth_info is only available when RESIN_PROXY_TOKEN is empty")
 	}
 	if err := s.validateEndpoint(endpoint); err != nil {
 		return nil, err
@@ -283,9 +280,6 @@ func (s *ControlPlaneService) UpdateEndpoint(id string, patchJSON json.RawMessag
 		if ok {
 			field.set(value)
 		}
-	}
-	if value, ok, _ := patch.optionalBool("require_proxy_auth_info"); ok && value && s.proxyTokenSet() {
-		return nil, invalidArg("require_proxy_auth_info is only available when RESIN_PROXY_TOKEN is empty")
 	}
 	if validationErr := s.validateEndpoint(next); validationErr != nil {
 		return nil, validationErr

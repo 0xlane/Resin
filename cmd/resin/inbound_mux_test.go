@@ -7,7 +7,19 @@ import (
 
 	"github.com/Resinat/Resin/internal/model"
 	"github.com/Resinat/Resin/internal/proxy"
+	"github.com/Resinat/Resin/internal/service"
 )
+
+func newInboundMux(proxyToken string, forward, reverse, apiHandler, tokenActionHandler http.Handler) http.Handler {
+	return newEndpointInboundMux(
+		func() model.Endpoint { return service.NewDefaultEndpoint(0) },
+		proxyToken,
+		forward,
+		reverse,
+		apiHandler,
+		tokenActionHandler,
+	)
+}
 
 func tagHandler(tag string, status int) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
