@@ -48,7 +48,6 @@ const EXACT_ZH_TO_EN: Record<string, string> = {
   "Proxy Token 认证": "Proxy Token Authentication",
   "强制客户端发送代理认证信息": "Require Clients to Send Proxy Credentials",
   "当前已配置 Proxy Token": "Proxy Token is currently configured",
-  "需要 RESIN_AUTH_VERSION=V1": "Requires RESIN_AUTH_VERSION=V1",
   "端口必须是 1 到 65535 之间的整数": "Port must be an integer between 1 and 65535",
   "管理页面和代理至少启用一项": "Enable at least the admin console or proxy access",
   "至少启用一种代理协议": "Enable at least one proxy protocol",
@@ -314,8 +313,6 @@ const EXACT_ZH_TO_EN: Record<string, string> = {
   "代理免认证": "No-auth proxy",
   "后端 RESIN_PROXY_TOKEN 为空，正/反向代理无需认证。":
     "Backend RESIN_PROXY_TOKEN is empty; forward/reverse proxy require no authentication.",
-  "当前为 LEGACY_V0 鉴权，SOCKS5 正向代理未启用。":
-    "LEGACY_V0 auth is active; SOCKS5 forward proxy is not enabled.",
   "curl 示例": "curl example",
   "目标网址": "Target URL",
   "例如 https://api.ipify.org": "e.g. https://api.ipify.org",

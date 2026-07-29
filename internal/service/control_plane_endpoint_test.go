@@ -141,17 +141,6 @@ func TestControlPlaneEndpoints_RejectUnavailableOptions(t *testing.T) {
 		assertServiceErrorCode(t, err, "INVALID_ARGUMENT")
 	})
 
-	t.Run("SOCKS5 with legacy auth", func(t *testing.T) {
-		cp, _ := newEndpointTestService(t, &config.EnvConfig{
-			ResinPort:   2260,
-			AuthVersion: config.AuthVersionLegacyV0,
-		})
-		_, err := cp.CreateEndpoint(CreateEndpointRequest{
-			Port:        32031,
-			AllowSOCKS5: boolPointer(true),
-		})
-		assertServiceErrorCode(t, err, "INVALID_ARGUMENT")
-	})
 }
 
 func TestControlPlaneEndpoints_ManagementOnlyDefaultsProxyProtocolsOff(t *testing.T) {

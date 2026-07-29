@@ -53,9 +53,6 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if warning := authVersionStartupWarning(envCfg.AuthVersion); warning != "" {
-		startupWarnf("%s", warning)
-	}
 
 	engine, dbCloser, err := state.PersistenceBootstrap(envCfg.StateDir, envCfg.CacheDir)
 	if err != nil {
@@ -418,7 +415,6 @@ func (a *resinApp) buildNetworkServers(engine *state.StateEngine) error {
 
 	forwardProxy := proxy.NewForwardProxy(proxy.ForwardProxyConfig{
 		ProxyToken:        a.envCfg.ProxyToken,
-		AuthVersion:       string(a.envCfg.AuthVersion),
 		Router:            a.topoRuntime.router,
 		Pool:              a.topoRuntime.pool,
 		Health:            a.topoRuntime.pool,
@@ -431,7 +427,6 @@ func (a *resinApp) buildNetworkServers(engine *state.StateEngine) error {
 
 	reverseProxy := proxy.NewReverseProxy(proxy.ReverseProxyConfig{
 		ProxyToken:        a.envCfg.ProxyToken,
-		AuthVersion:       string(a.envCfg.AuthVersion),
 		Router:            a.topoRuntime.router,
 		Pool:              a.topoRuntime.pool,
 		PlatformLookup:    a.topoRuntime.pool,
@@ -445,7 +440,6 @@ func (a *resinApp) buildNetworkServers(engine *state.StateEngine) error {
 	})
 	socks5Inbound := proxy.NewSocks5Inbound(proxy.Socks5InboundConfig{
 		ProxyToken:       a.envCfg.ProxyToken,
-		AuthVersion:      string(a.envCfg.AuthVersion),
 		Router:           a.topoRuntime.router,
 		Pool:             a.topoRuntime.pool,
 		Health:           a.topoRuntime.pool,
@@ -472,7 +466,7 @@ func (a *resinApp) buildNetworkServers(engine *state.StateEngine) error {
 		AllowProxy:       true,
 		AllowHTTPForward: true,
 		AllowHTTPReverse: true,
-		AllowSOCKS5:      a.envCfg.AuthVersion == config.AuthVersionV1,
+		AllowSOCKS5:      true,
 	}
 	if err := endpointManager.ApplyEndpoint(defaultEndpoint); err != nil {
 		return fmt.Errorf("default endpoint listen: %w", err)
@@ -523,7 +517,7 @@ func (a *resinApp) startServers() <-chan error {
 	log.Printf(
 		"Resin default endpoint starting on %s (%s)",
 		formatListenAddress(a.envCfg.ListenAddress, a.envCfg.ResinPort),
-		inboundProtocolsStartupLabel(a.envCfg.AuthVersion),
+		"HTTP + SOCKS5",
 	)
 	return a.endpointManager.Start()
 }

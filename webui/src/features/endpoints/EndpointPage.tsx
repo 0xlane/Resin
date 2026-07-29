@@ -54,7 +54,7 @@ function nextAvailablePort(endpoints: Endpoint[]): number {
   return 2261;
 }
 
-function newEndpointDraft(endpoints: Endpoint[], socks5Available: boolean): EndpointDraft {
+function newEndpointDraft(endpoints: Endpoint[]): EndpointDraft {
   return {
     port: String(nextAvailablePort(endpoints)),
     allow_management: false,
@@ -62,7 +62,7 @@ function newEndpointDraft(endpoints: Endpoint[], socks5Available: boolean): Endp
     require_proxy_auth_info: false,
     allow_http_forward: true,
     allow_http_reverse: true,
-    allow_socks5: socks5Available,
+    allow_socks5: true,
   };
 }
 
@@ -100,7 +100,6 @@ type EndpointEditorProps = {
   endpoint: Endpoint | null;
   draft: EndpointDraft;
   proxyTokenSet: boolean;
-  socks5Available: boolean;
   pending: boolean;
   onChange: (draft: EndpointDraft) => void;
   onClose: () => void;
@@ -111,7 +110,6 @@ function EndpointEditor({
   endpoint,
   draft,
   proxyTokenSet,
-  socks5Available,
   pending,
   onChange,
   onClose,
@@ -138,7 +136,7 @@ function EndpointEditor({
       allow_proxy: true,
       allow_http_forward: true,
       allow_http_reverse: true,
-      allow_socks5: socks5Available,
+      allow_socks5: true,
     });
   };
 
@@ -216,14 +214,10 @@ function EndpointEditor({
                 />
               </label>
               <label className="endpoint-switch-row" htmlFor="endpoint-socks5">
-                <span>
-                  {t("SOCKS5 代理")}
-                  {!socks5Available ? <small>{t("需要 RESIN_AUTH_VERSION=V1")}</small> : null}
-                </span>
+                <span>{t("SOCKS5 代理")}</span>
                 <Switch
                   id="endpoint-socks5"
                   checked={draft.allow_socks5}
-                  disabled={!socks5Available}
                   onChange={(event) => setProtocol("allow_socks5", event.target.checked)}
                 />
               </label>
@@ -280,7 +274,6 @@ export function EndpointPage() {
   });
   const endpoints = endpointsQuery.data ?? EMPTY_ENDPOINTS;
   const proxyTokenSet = envQuery.data?.proxy_token_set ?? true;
-  const socks5Available = envQuery.data?.auth_version === "V1";
 
   const invalidateEndpoints = async () => {
     await queryClient.invalidateQueries({ queryKey: ["endpoints"] });
@@ -311,7 +304,7 @@ export function EndpointPage() {
 
   const openCreate = () => {
     setEditingEndpoint(null);
-    setDraft(newEndpointDraft(endpoints, socks5Available));
+    setDraft(newEndpointDraft(endpoints));
     setEditorOpen(true);
   };
 
@@ -467,7 +460,6 @@ export function EndpointPage() {
           endpoint={editingEndpoint}
           draft={draft}
           proxyTokenSet={proxyTokenSet}
-          socks5Available={socks5Available}
           pending={saveMutation.isPending}
           onChange={setDraft}
           onClose={closeEditor}

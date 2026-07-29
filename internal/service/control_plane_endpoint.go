@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Resinat/Resin/internal/config"
 	"github.com/Resinat/Resin/internal/model"
 	"github.com/Resinat/Resin/internal/state"
 )
@@ -85,7 +84,7 @@ func (s *ControlPlaneService) defaultEndpoint() model.Endpoint {
 		AllowProxy:       true,
 		AllowHTTPForward: true,
 		AllowHTTPReverse: true,
-		AllowSOCKS5:      s.socks5Available(),
+		AllowSOCKS5:      true,
 	}
 }
 
@@ -149,10 +148,6 @@ func (s *ControlPlaneService) proxyTokenSet() bool {
 	return s != nil && s.EnvCfg != nil && s.EnvCfg.ProxyToken != ""
 }
 
-func (s *ControlPlaneService) socks5Available() bool {
-	return s != nil && s.EnvCfg != nil && s.EnvCfg.AuthVersion == config.AuthVersionV1
-}
-
 func (s *ControlPlaneService) ListEndpoints() ([]EndpointResponse, error) {
 	if s == nil || s.Engine == nil {
 		return nil, internal("endpoint service is not initialized", nil)
@@ -208,15 +203,12 @@ func (s *ControlPlaneService) CreateEndpoint(req CreateEndpointRequest) (*Endpoi
 		RequireProxyAuthInfo: boolOrDefault(req.RequireProxyAuthInfo, false),
 		AllowHTTPForward:     boolOrDefault(req.AllowHTTPForward, allowProxy),
 		AllowHTTPReverse:     boolOrDefault(req.AllowHTTPReverse, allowProxy),
-		AllowSOCKS5:          boolOrDefault(req.AllowSOCKS5, allowProxy && s.socks5Available()),
+		AllowSOCKS5:          boolOrDefault(req.AllowSOCKS5, allowProxy),
 		CreatedAtNs:          now,
 		UpdatedAtNs:          now,
 	}
 	if req.RequireProxyAuthInfo != nil && *req.RequireProxyAuthInfo && s.proxyTokenSet() {
 		return nil, invalidArg("require_proxy_auth_info is only available when RESIN_PROXY_TOKEN is empty")
-	}
-	if req.AllowSOCKS5 != nil && *req.AllowSOCKS5 && !s.socks5Available() {
-		return nil, invalidArg("allow_socks5 requires RESIN_AUTH_VERSION=V1")
 	}
 	if err := s.validateEndpoint(endpoint); err != nil {
 		return nil, err
@@ -294,9 +286,6 @@ func (s *ControlPlaneService) UpdateEndpoint(id string, patchJSON json.RawMessag
 	}
 	if value, ok, _ := patch.optionalBool("require_proxy_auth_info"); ok && value && s.proxyTokenSet() {
 		return nil, invalidArg("require_proxy_auth_info is only available when RESIN_PROXY_TOKEN is empty")
-	}
-	if value, ok, _ := patch.optionalBool("allow_socks5"); ok && value && !s.socks5Available() {
-		return nil, invalidArg("allow_socks5 requires RESIN_AUTH_VERSION=V1")
 	}
 	if validationErr := s.validateEndpoint(next); validationErr != nil {
 		return nil, validationErr

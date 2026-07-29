@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Resinat/Resin/internal/config"
 	"github.com/Resinat/Resin/internal/outbound"
 	"github.com/Resinat/Resin/internal/routing"
 )
@@ -38,7 +37,6 @@ var socks5HandshakeTimeout = 15 * time.Second
 // Socks5InboundConfig holds dependencies for the SOCKS5 inbound handler.
 type Socks5InboundConfig struct {
 	ProxyToken       string
-	AuthVersion      string
 	Router           *routing.Router
 	Pool             outbound.PoolAccessor
 	Health           HealthRecorder
@@ -49,10 +47,9 @@ type Socks5InboundConfig struct {
 
 // Socks5Inbound implements SOCKS5 CONNECT over a raw TCP connection.
 type Socks5Inbound struct {
-	token       string
-	authVersion config.AuthVersion
-	tunnel      tunnelDeps
-	events      EventEmitter
+	token  string
+	tunnel tunnelDeps
+	events EventEmitter
 }
 
 type socks5HandshakeResult struct {
@@ -68,13 +65,8 @@ func NewSocks5Inbound(cfg Socks5InboundConfig) *Socks5Inbound {
 	if ev == nil {
 		ev = NoOpEventEmitter{}
 	}
-	authVersion := config.NormalizeAuthVersion(cfg.AuthVersion)
-	if authVersion == "" {
-		authVersion = config.AuthVersionLegacyV0
-	}
 	return &Socks5Inbound{
-		token:       cfg.ProxyToken,
-		authVersion: authVersion,
+		token: cfg.ProxyToken,
 		tunnel: tunnelDeps{
 			router:      cfg.Router,
 			pool:        cfg.Pool,
@@ -171,11 +163,6 @@ func (s *Socks5Inbound) ServeConnContext(baseCtx context.Context, conn net.Conn)
 }
 
 func (s *Socks5Inbound) performHandshake(conn net.Conn, reader *bufio.Reader, requireAuthInfo bool) socks5HandshakeResult {
-	if s.authVersion != config.AuthVersionV1 {
-		_, _ = conn.Write([]byte{socks5Version, socks5MethodNoAcceptable})
-		return socks5HandshakeResult{}
-	}
-
 	method, ok := s.negotiateMethod(conn, reader, requireAuthInfo)
 	if !ok {
 		return socks5HandshakeResult{}
