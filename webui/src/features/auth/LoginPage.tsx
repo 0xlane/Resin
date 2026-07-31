@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Info, LockKeyhole, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Info, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -25,6 +25,7 @@ export function LoginPage() {
   const setToken = useAuthStore((state) => state.setToken);
   const storedToken = useAuthStore((state) => state.token);
   const [submitError, setSubmitError] = useState("");
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   const {
     register,
@@ -126,9 +127,20 @@ export function LoginPage() {
               id="token"
               className="login-token-input"
               autoComplete="off"
+              type={isPasswordVisible ? "text" : "password"}
               invalid={Boolean(errors.token)}
               {...register("token")}
             />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="password-visibility-toggle"
+              aria-label={isPasswordVisible ? t("隐藏管理员令牌") : t("显示管理员令牌")}
+              title={isPasswordVisible ? t("隐藏管理员令牌") : t("显示管理员令牌")}
+              onClick={() => setIsPasswordVisible((visible) => !visible)}
+            >
+              {isPasswordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+            </Button>
           </div>
 
           {errors.token?.message ? <p className="field-error">{t(errors.token.message)}</p> : null}

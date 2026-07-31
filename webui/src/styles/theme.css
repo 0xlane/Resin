@@ -2961,6 +2961,7 @@ a {
 .login-token-input {
   height: 44px;
   padding-left: 42px;
+  padding-right: 46px;
   border-radius: 10px;
 }
 
@@ -3101,6 +3102,20 @@ a {
 .endpoint-capability-state::before {
   content: "·";
   margin-right: 4px;
+}
+
+.password-visibility-toggle {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  right: 6px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  padding: 0;
+  transform: translateY(-50%);
 }
 
 @media (max-width: 1120px) {

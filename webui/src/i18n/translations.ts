@@ -15,6 +15,8 @@ const EXACT_ZH_TO_EN: Record<string, string> = {
   "管理员令牌": "Admin Token",
   "管理员令牌通过 `RESIN_ADMIN_TOKEN` 环境变量配置":
     "The administrator token is configured through the `RESIN_ADMIN_TOKEN` environment variable",
+  "显示管理员令牌": "Show Admin Token",
+  "隐藏管理员令牌": "Hide Admin Token",
   "进入控制台": "Enter Console",
   "校验中...": "Verifying...",
   "请输入 Admin Token": "Please enter Admin Token",
