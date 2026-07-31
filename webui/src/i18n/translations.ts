@@ -12,8 +12,9 @@ const EXACT_ZH_TO_EN: Record<string, string> = {
   "退出登录": "Sign Out",
   "当前为免认证访问模式": "Running in no-auth mode",
   "管理员登录": "Admin Login",
-  "输入后端 `RESIN_ADMIN_TOKEN` 进入控制台。": "Enter backend `RESIN_ADMIN_TOKEN` to access the console.",
-  "粘贴 Bearer Token（仅本地保存）": "Paste Bearer Token (stored locally only)",
+  "管理员令牌": "Admin Token",
+  "管理员令牌通过 `RESIN_ADMIN_TOKEN` 环境变量配置":
+    "The administrator token is configured through the `RESIN_ADMIN_TOKEN` environment variable",
   "进入控制台": "Enter Console",
   "校验中...": "Verifying...",
   "请输入 Admin Token": "Please enter Admin Token",
@@ -113,6 +114,7 @@ Note: Once enabled, requests without authentication information are rejected ins
   "未知错误": "Unknown error",
   "错误": "Error",
   "状态": "Status",
+  "刷新状态": "Refresh Status",
   "健康": "Healthy",
   "熔断": "Circuit Open",
   "待测": "Pending Test",
@@ -556,6 +558,7 @@ Note: Once enabled, requests without authentication information are rejected ins
   "永久删除当前平台及其配置，操作不可撤销。":
     "Permanently delete this platform and its config. This action cannot be undone.",
   "正常": "Normal",
+  "未检查": "Not checked",
   "正则": "Regex",
   "中文": "中文",
   "重新整理当前平台可用节点，不会修改配置。":
@@ -677,9 +680,13 @@ Note: Once enabled, requests without authentication information are rejected ins
   "订阅 {{name}} 没有可清理的熔断或异常节点":
     "Subscription {{name}} has no circuit-open or failed nodes to clean",
   "订阅 {{name}} 已更新": "Subscription {{name}} updated",
+  "订阅 {{name}} 已启用": "Subscription {{name}} enabled",
+  "订阅 {{name}} 已禁用": "Subscription {{name}} disabled",
   "订阅 {{name}} 已清理 {{count}} 个节点": "Subscription {{name}} cleaned {{count}} nodes",
   "订阅 {{name}} 已删除": "Subscription {{name}} deleted",
   "订阅 {{name}} 已手动刷新": "Subscription {{name}} refreshed manually",
+  "启用订阅 {{name}}": "Enable subscription {{name}}",
+  "停用订阅 {{name}}": "Disable subscription {{name}}",
   "分桶": "Bin width",
   "更新于 {{time}}": "Updated {{time}}",
   "共 {{count}} 个订阅": "{{count}} subscriptions",

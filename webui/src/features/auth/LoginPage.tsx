@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { LockKeyhole, ShieldCheck } from "lucide-react";
+import { Info, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -98,28 +98,33 @@ export function LoginPage() {
   return (
     <main className="login-layout">
       <Card className="login-card">
-        <LanguageSwitcher className="login-locale" />
-
         <div className="login-header">
           <div className="brand-logo" aria-hidden="true">
             <ShieldCheck size={18} />
           </div>
-          <div>
+          <div className="login-heading-copy">
             <h1 className="login-title">{t("管理员登录")}</h1>
           </div>
+          <LanguageSwitcher className="login-locale" />
         </div>
 
-        <p className="login-description">{t("输入后端 `RESIN_ADMIN_TOKEN` 进入控制台。")}</p>
-
         <form className="login-form" onSubmit={onSubmit}>
-          <label className="field-label" htmlFor="token">
-            Admin Token
+          <label className="field-label field-label-with-info login-token-label" htmlFor="token">
+            <span>{t("管理员令牌")}</span>
+            <span
+              className="subscription-info-icon"
+              title={t("管理员令牌通过 `RESIN_ADMIN_TOKEN` 环境变量配置")}
+              aria-label={t("管理员令牌通过 `RESIN_ADMIN_TOKEN` 环境变量配置")}
+              tabIndex={0}
+            >
+              <Info size={14} />
+            </span>
           </label>
-          <div className="input-with-icon">
-            <LockKeyhole size={16} />
+          <div className="login-input-wrap">
+            <LockKeyhole size={16} aria-hidden="true" />
             <Input
               id="token"
-              placeholder={t("粘贴 Bearer Token（仅本地保存）")}
+              className="login-token-input"
               autoComplete="off"
               invalid={Boolean(errors.token)}
               {...register("token")}
@@ -129,7 +134,7 @@ export function LoginPage() {
           {errors.token?.message ? <p className="field-error">{t(errors.token.message)}</p> : null}
           {submitError ? <p className="field-error">{submitError}</p> : null}
 
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" className="w-full login-submit" disabled={isSubmitting}>
             {isSubmitting ? t("校验中...") : t("进入控制台")}
           </Button>
         </form>
