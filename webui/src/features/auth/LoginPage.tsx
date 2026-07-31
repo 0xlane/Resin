@@ -130,9 +130,8 @@ export function LoginPage() {
               variant="ghost"
               size="sm"
               className="password-visibility-toggle"
-              aria-label={isPasswordVisible ? t("隐藏") : t("显示")}
-              aria-pressed={isPasswordVisible}
-              title={isPasswordVisible ? t("隐藏") : t("显示")}
+              aria-label={isPasswordVisible ? t("隐藏 Admin Token") : t("显示 Admin Token")}
+              title={isPasswordVisible ? t("隐藏 Admin Token") : t("显示 Admin Token")}
               onClick={() => setIsPasswordVisible((visible) => !visible)}
             >
               {isPasswordVisible ? <EyeOff size={16} /> : <Eye size={16} />}

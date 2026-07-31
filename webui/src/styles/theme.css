@@ -2926,6 +2926,7 @@ a {
   right: 6px;
   width: 34px;
   height: 34px;
+  border: none;
   padding: 0;
   transform: translateY(-50%);
 }
