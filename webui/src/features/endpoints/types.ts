@@ -1,4 +1,4 @@
-export type EndpointStatus = "active" | "starting" | "inactive" | "error";
+export type EndpointStatus = "active" | "starting" | "inactive" | "error" | string;
 
 export type Endpoint = {
   id: string;
@@ -9,7 +9,7 @@ export type Endpoint = {
   allow_http_forward: boolean;
   allow_http_reverse: boolean;
   allow_socks5: boolean;
-  source: "environment" | "database";
+  source: "environment" | "database" | string;
   read_only: boolean;
   status: EndpointStatus;
   last_error?: string;
@@ -29,4 +29,7 @@ export type EndpointInput = {
 
 export type EndpointListResponse = {
   items: Endpoint[];
+  total: number;
+  limit: number;
+  offset: number;
 };

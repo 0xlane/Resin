@@ -7,13 +7,17 @@ import (
 )
 
 func HandleListEndpoints(cp *service.ControlPlaneService) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pg, ok := parsePaginationOrWriteInvalid(w, r)
+		if !ok {
+			return
+		}
 		endpoints, err := cp.ListEndpoints()
 		if err != nil {
 			writeServiceError(w, err)
 			return
 		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": endpoints})
+		WritePage(w, http.StatusOK, endpoints, pg)
 	}
 }
 
