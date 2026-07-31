@@ -558,6 +558,7 @@ a {
   font-size: 11px;
   font-weight: 700;
   padding: 4px 9px;
+  white-space: nowrap;
 }
 
 .badge-neutral {
@@ -1848,6 +1849,7 @@ a {
   margin-top: 6px;
   font-size: 14px;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .checkbox-group {
@@ -2172,6 +2174,10 @@ a {
 
 .data-table-rules {
   min-width: 780px;
+}
+
+.data-table-logs {
+  min-width: 1220px;
 }
 
 .data-table-subs {
