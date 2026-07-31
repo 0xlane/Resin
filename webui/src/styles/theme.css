@@ -2948,19 +2948,8 @@ a {
   position: relative;
 }
 
-.login-input-wrap>svg {
-  position: absolute;
-  z-index: 1;
-  top: 50%;
-  left: 14px;
-  transform: translateY(-50%);
-  color: var(--text-muted);
-  pointer-events: none;
-}
-
 .login-token-input {
   height: 44px;
-  padding-left: 42px;
   padding-right: 46px;
   border-radius: 10px;
 }

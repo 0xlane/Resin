@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, Info, LockKeyhole, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Info, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -122,7 +122,6 @@ export function LoginPage() {
             </span>
           </label>
           <div className="login-input-wrap">
-            <LockKeyhole size={16} aria-hidden="true" />
             <Input
               id="token"
               className="login-token-input"
