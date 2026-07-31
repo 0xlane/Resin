@@ -3160,6 +3160,25 @@ a {
   color: var(--text-muted);
 }
 
+.login-form .input-with-icon {
+  position: relative;
+}
+
+.login-form .input-with-icon .input {
+  padding-right: 46px;
+}
+
+.password-visibility-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  padding: 0;
+  transform: translateY(-50%);
+}
+
 @media (max-width: 1120px) {
   .app-layout {
     grid-template-columns: 1fr;

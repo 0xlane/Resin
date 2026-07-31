@@ -14,6 +14,8 @@ const EXACT_ZH_TO_EN: Record<string, string> = {
   "管理员登录": "Admin Login",
   "输入后端 `RESIN_ADMIN_TOKEN` 进入控制台。": "Enter backend `RESIN_ADMIN_TOKEN` to access the console.",
   "粘贴 Bearer Token（仅本地保存）": "Paste Bearer Token (stored locally only)",
+  "显示 Admin Token": "Show Admin Token",
+  "隐藏 Admin Token": "Hide Admin Token",
   "进入控制台": "Enter Console",
   "校验中...": "Verifying...",
   "请输入 Admin Token": "Please enter Admin Token",
