@@ -30,6 +30,7 @@ type EndpointRuntime interface {
 type EndpointResponse struct {
 	ID                   string `json:"id"`
 	Port                 int    `json:"port"`
+	Enabled              bool   `json:"enabled"`
 	AllowManagement      bool   `json:"allow_management"`
 	AllowProxy           bool   `json:"allow_proxy"`
 	RequireProxyAuthInfo bool   `json:"require_proxy_auth_info"`
@@ -46,6 +47,7 @@ type EndpointResponse struct {
 
 type CreateEndpointRequest struct {
 	Port                 int   `json:"port"`
+	Enabled              *bool `json:"enabled,omitempty"`
 	AllowManagement      *bool `json:"allow_management,omitempty"`
 	AllowProxy           *bool `json:"allow_proxy,omitempty"`
 	RequireProxyAuthInfo *bool `json:"require_proxy_auth_info,omitempty"`
@@ -55,6 +57,7 @@ type CreateEndpointRequest struct {
 }
 
 var endpointPatchAllowedFields = map[string]bool{
+	"enabled":                 true,
 	"port":                    true,
 	"allow_management":        true,
 	"allow_proxy":             true,
@@ -79,6 +82,7 @@ func NewDefaultEndpoint(port int) model.Endpoint {
 	return model.Endpoint{
 		ID:               DefaultEndpointID,
 		Port:             port,
+		Enabled:          true,
 		AllowManagement:  true,
 		AllowProxy:       true,
 		AllowHTTPForward: true,
@@ -106,6 +110,7 @@ func (s *ControlPlaneService) endpointResponse(endpoint model.Endpoint, source s
 	response := EndpointResponse{
 		ID:                   endpoint.ID,
 		Port:                 endpoint.Port,
+		Enabled:              endpoint.Enabled,
 		AllowManagement:      endpoint.AllowManagement,
 		AllowProxy:           endpoint.AllowProxy,
 		RequireProxyAuthInfo: endpoint.RequireProxyAuthInfo,
@@ -155,6 +160,9 @@ func (s *ControlPlaneService) ListEndpoints() ([]EndpointResponse, error) {
 	if s == nil || s.Engine == nil {
 		return nil, internal("endpoint service is not initialized", nil)
 	}
+	s.endpointMu.RLock()
+	defer s.endpointMu.RUnlock()
+
 	custom, err := s.Engine.ListEndpoints()
 	if err != nil {
 		return nil, internal("list endpoints", err)
@@ -175,6 +183,9 @@ func (s *ControlPlaneService) GetEndpoint(id string) (*EndpointResponse, error) 
 	if s == nil || s.Engine == nil {
 		return nil, internal("endpoint service is not initialized", nil)
 	}
+	s.endpointMu.RLock()
+	defer s.endpointMu.RUnlock()
+
 	endpoint, err := s.Engine.GetEndpoint(id)
 	if errors.Is(err, state.ErrNotFound) {
 		return nil, notFound("endpoint not found")
@@ -198,6 +209,7 @@ func (s *ControlPlaneService) CreateEndpoint(req CreateEndpointRequest) (*Endpoi
 	endpoint := model.Endpoint{
 		ID:                   uuid.New().String(),
 		Port:                 req.Port,
+		Enabled:              boolOrDefault(req.Enabled, true),
 		AllowManagement:      boolOrDefault(req.AllowManagement, false),
 		AllowProxy:           allowProxy,
 		RequireProxyAuthInfo: boolOrDefault(req.RequireProxyAuthInfo, false),
@@ -216,7 +228,7 @@ func (s *ControlPlaneService) CreateEndpoint(req CreateEndpointRequest) (*Endpoi
 		}
 		return nil, internal("persist endpoint", err)
 	}
-	if s.EndpointRuntime != nil {
+	if endpoint.Enabled && s.EndpointRuntime != nil {
 		if err := s.EndpointRuntime.ApplyEndpoint(endpoint); err != nil {
 			s.EndpointRuntime.RemoveEndpoint(endpoint.ID)
 			if rollbackErr := s.Engine.DeleteEndpoint(endpoint.ID); rollbackErr != nil {
@@ -265,6 +277,7 @@ func (s *ControlPlaneService) UpdateEndpoint(id string, patchJSON json.RawMessag
 		name string
 		set  func(bool)
 	}{
+		{"enabled", func(v bool) { next.Enabled = v }},
 		{"allow_management", func(v bool) { next.AllowManagement = v }},
 		{"allow_proxy", func(v bool) { next.AllowProxy = v }},
 		{"require_proxy_auth_info", func(v bool) { next.RequireProxyAuthInfo = v }},
@@ -284,6 +297,10 @@ func (s *ControlPlaneService) UpdateEndpoint(id string, patchJSON json.RawMessag
 	if validationErr := s.validateEndpoint(next); validationErr != nil {
 		return nil, validationErr
 	}
+	if next == *current {
+		response := s.endpointResponse(*current, "database", false)
+		return &response, nil
+	}
 	next.UpdatedAtNs = time.Now().UnixNano()
 	if err := s.Engine.UpdateEndpoint(next); err != nil {
 		if errors.Is(err, state.ErrConflict) {
@@ -294,13 +311,18 @@ func (s *ControlPlaneService) UpdateEndpoint(id string, patchJSON json.RawMessag
 		}
 		return nil, internal("persist endpoint", err)
 	}
-	if s.EndpointRuntime != nil {
+	if next.Enabled && s.EndpointRuntime != nil {
 		if applyErr := s.EndpointRuntime.ApplyEndpoint(next); applyErr != nil {
+			if !current.Enabled {
+				s.EndpointRuntime.RemoveEndpoint(next.ID)
+			}
 			if rollbackErr := s.Engine.UpdateEndpoint(*current); rollbackErr != nil {
 				return nil, internal("rollback endpoint after listener failure", errors.Join(applyErr, rollbackErr))
 			}
 			return nil, conflict(fmt.Sprintf("listen on port %d: %v", next.Port, applyErr))
 		}
+	} else if s.EndpointRuntime != nil {
+		s.EndpointRuntime.RemoveEndpoint(next.ID)
 	}
 	response := s.endpointResponse(next, "database", false)
 	return &response, nil

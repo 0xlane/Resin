@@ -142,6 +142,8 @@ func (m *endpointRuntimeManager) RemoveEndpoint(id string) {
 	delete(m.statuses, id)
 	m.mu.Unlock()
 	if runtime != nil {
+		// Release the port before returning so a following start can rebind it.
+		_ = runtime.listener.Close()
 		go stopManagedEndpoint(runtime, 5*time.Second)
 	}
 }

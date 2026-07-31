@@ -38,6 +38,10 @@ const EXACT_ZH_TO_EN: Record<string, string> = {
   "删除接入点": "Delete Endpoint",
   "删除接入点 :{{port}}": "Delete endpoint :{{port}}",
   "监听端口": "Listening Port",
+  "启用接入点 :{{port}}": "Enable endpoint :{{port}}",
+  "禁用接入点 :{{port}}": "Disable endpoint :{{port}}",
+  "接入点 :{{port}} 已启用": "Endpoint :{{port}} enabled",
+  "接入点 :{{port}} 已禁用": "Endpoint :{{port}} disabled",
   "接入点配置": "Endpoint Configuration",
   "修改监听端口和接入能力后保存。": "Update the listening port and access capabilities, then save.",
   "删除接入点并停止监听，操作不可撤销。":

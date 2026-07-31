@@ -462,19 +462,29 @@ func (a *resinApp) buildNetworkServers(engine *state.StateEngine) error {
 	if err := endpointManager.ApplyEndpoint(defaultEndpoint); err != nil {
 		return fmt.Errorf("default endpoint listen: %w", err)
 	}
-	customEndpoints, err := engine.ListEndpoints()
-	if err != nil {
+	if err := restorePersistedEndpoints(engine, endpointManager); err != nil {
 		endpointManager.RemoveEndpoint(service.DefaultEndpointID)
 		return fmt.Errorf("load endpoints: %w", err)
 	}
+	a.endpointManager = endpointManager
+
+	return nil
+}
+
+func restorePersistedEndpoints(engine *state.StateEngine, endpointManager *endpointRuntimeManager) error {
+	customEndpoints, err := engine.ListEndpoints()
+	if err != nil {
+		return err
+	}
 	for _, endpoint := range customEndpoints {
+		if !endpoint.Enabled {
+			continue
+		}
 		if err := endpointManager.ApplyEndpoint(endpoint); err != nil {
 			endpointManager.RecordEndpointError(endpoint, err)
 			log.Printf("Endpoint %s on port %d unavailable: %v", endpoint.ID, endpoint.Port, err)
 		}
 	}
-	a.endpointManager = endpointManager
-
 	return nil
 }
 

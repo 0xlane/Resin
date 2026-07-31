@@ -374,10 +374,10 @@ func (r *StateRepo) InsertEndpoint(endpoint model.Endpoint) error {
 
 	_, err := r.db.Exec(`
 		INSERT INTO endpoints (
-			id, port, allow_management, allow_proxy, require_proxy_auth_info,
+			id, port, enabled, allow_management, allow_proxy, require_proxy_auth_info,
 			allow_http_forward, allow_http_reverse, allow_socks5, created_at_ns, updated_at_ns
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, endpoint.ID, endpoint.Port, endpoint.AllowManagement, endpoint.AllowProxy,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, endpoint.ID, endpoint.Port, endpoint.Enabled, endpoint.AllowManagement, endpoint.AllowProxy,
 		endpoint.RequireProxyAuthInfo, endpoint.AllowHTTPForward, endpoint.AllowHTTPReverse,
 		endpoint.AllowSOCKS5, endpoint.CreatedAtNs, endpoint.UpdatedAtNs)
 	if isSQLiteUniqueConstraint(err) {
@@ -394,6 +394,7 @@ func (r *StateRepo) UpdateEndpoint(endpoint model.Endpoint) error {
 	result, err := r.db.Exec(`
 		UPDATE endpoints SET
 			port = ?,
+			enabled = ?,
 			allow_management = ?,
 			allow_proxy = ?,
 			require_proxy_auth_info = ?,
@@ -402,7 +403,7 @@ func (r *StateRepo) UpdateEndpoint(endpoint model.Endpoint) error {
 			allow_socks5 = ?,
 			updated_at_ns = ?
 		WHERE id = ?
-	`, endpoint.Port, endpoint.AllowManagement, endpoint.AllowProxy,
+	`, endpoint.Port, endpoint.Enabled, endpoint.AllowManagement, endpoint.AllowProxy,
 		endpoint.RequireProxyAuthInfo, endpoint.AllowHTTPForward, endpoint.AllowHTTPReverse,
 		endpoint.AllowSOCKS5, endpoint.UpdatedAtNs, endpoint.ID)
 	if isSQLiteUniqueConstraint(err) {
@@ -437,7 +438,7 @@ func (r *StateRepo) DeleteEndpoint(id string) error {
 // GetEndpoint returns one persisted custom endpoint.
 func (r *StateRepo) GetEndpoint(id string) (*model.Endpoint, error) {
 	row := r.db.QueryRow(`
-		SELECT id, port, allow_management, allow_proxy, require_proxy_auth_info,
+		SELECT id, port, enabled, allow_management, allow_proxy, require_proxy_auth_info,
 		       allow_http_forward, allow_http_reverse, allow_socks5, created_at_ns, updated_at_ns
 		FROM endpoints WHERE id = ?
 	`, id)
@@ -454,7 +455,7 @@ func (r *StateRepo) GetEndpoint(id string) (*model.Endpoint, error) {
 // ListEndpoints returns all persisted custom endpoints ordered by port.
 func (r *StateRepo) ListEndpoints() ([]model.Endpoint, error) {
 	rows, err := r.db.Query(`
-		SELECT id, port, allow_management, allow_proxy, require_proxy_auth_info,
+		SELECT id, port, enabled, allow_management, allow_proxy, require_proxy_auth_info,
 		       allow_http_forward, allow_http_reverse, allow_socks5, created_at_ns, updated_at_ns
 		FROM endpoints ORDER BY port ASC
 	`)
@@ -478,11 +479,12 @@ type endpointScanner func(dest ...any) error
 
 func scanEndpoint(scan endpointScanner) (model.Endpoint, error) {
 	var endpoint model.Endpoint
-	var allowManagement, allowProxy, requireProxyAuthInfo int
+	var enabled, allowManagement, allowProxy, requireProxyAuthInfo int
 	var allowHTTPForward, allowHTTPReverse, allowSOCKS5 int
 	err := scan(
 		&endpoint.ID,
 		&endpoint.Port,
+		&enabled,
 		&allowManagement,
 		&allowProxy,
 		&requireProxyAuthInfo,
@@ -495,6 +497,7 @@ func scanEndpoint(scan endpointScanner) (model.Endpoint, error) {
 	if err != nil {
 		return model.Endpoint{}, err
 	}
+	endpoint.Enabled = enabled != 0
 	endpoint.AllowManagement = allowManagement != 0
 	endpoint.AllowProxy = allowProxy != 0
 	endpoint.RequireProxyAuthInfo = requireProxyAuthInfo != 0

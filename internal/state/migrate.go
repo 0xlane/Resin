@@ -26,7 +26,8 @@ const (
 	stateVersionAddIncrementalAliveNodes         = 5
 	stateVersionAddPassiveCircuitBreakerDisabled = 6
 	stateVersionAddEndpoints                     = 7
-	stateLatestVersion                           = stateVersionAddEndpoints
+	stateVersionAddEndpointEnabled               = 8
+	stateLatestVersion                           = stateVersionAddEndpointEnabled
 	stateLegacyBaselineVersion                   = stateVersionAddFixedAccountHeader
 
 	stateBaseSchemaMigration = stateMigrationsPath + "/000001_state_base.up.sql"

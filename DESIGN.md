@@ -1146,6 +1146,7 @@ Body（partial patch 示例）：
 {
   "id": "uuid|default",
   "port": 2260,
+  "enabled": true,
   "allow_management": true,
   "allow_proxy": true,
   "require_proxy_auth_info": false,
@@ -1159,13 +1160,15 @@ Body（partial patch 示例）：
 }
 ```
 
+`enabled` 表示持久化的期望状态；`status` 与 `last_error` 表示 listener 的实际运行状态。两者可能在 listener 启动失败时不同，例如 `enabled=true`、`status=error`。
+
 * **GET** `/endpoints`：支持 `limit` / `offset` 分页；默认接入点置顶，其余按端口升序排列后分页，返回 `{ "items": [...], "total": 1, "limit": 50, "offset": 0 }`。
-* **POST** `/endpoints`：创建并立即启动自定义 listener。
+* **POST** `/endpoints`：创建自定义接入点。请求可传 `enabled`；省略时默认为 `true` 并立即启动 listener，传 `false` 时只持久化配置且返回 `status=inactive`。
 * **GET** `/endpoints/{endpoint_id}`：读取单个接入点。
-* **PATCH** `/endpoints/{endpoint_id}`：更新端口或能力；端口变更时先确认新 listener 可绑定，再关闭旧 listener。
+* **PATCH** `/endpoints/{endpoint_id}`：更新 `enabled`、端口或能力。`enabled` 从 `true` 变为 `false` 时持久化禁用状态并关闭 listener；从 `false` 变为 `true` 时启动 listener，启动失败则回滚本次 patch。patch 后所有字段均未变化时直接返回当前状态，不写数据库、不更新 `updated_at`、不重新应用 listener。端口变更时先确认新 listener 可绑定，再关闭旧 listener；禁用状态下修改其他配置只保存配置，不启动 listener。
 * **DELETE** `/endpoints/{endpoint_id}`：删除自定义接入点并关闭 listener。
 
-端口范围为 1-65535 且全局唯一；管理页面与代理至少启用一项；启用代理时至少启用一种代理协议。默认接入点拒绝 PATCH/DELETE。
+端口范围为 1-65535 且全局唯一；管理页面与代理至少启用一项；启用代理时至少启用一种代理协议。默认接入点拒绝 PATCH 与 DELETE。
 
 ### Platform
 

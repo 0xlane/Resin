@@ -26,6 +26,7 @@ import type { Endpoint, EndpointInput } from "./types";
 
 type EndpointFormState = {
   port: string;
+  enabled: boolean;
   allow_management: boolean;
   require_proxy_auth_info: boolean;
   allow_http_forward: boolean;
@@ -45,6 +46,7 @@ const REQUIRE_PROXY_AUTH_HINT = `一些应用（例如浏览器）只有在代�
 
 const DEFAULT_FORM: EndpointFormState = {
   port: "",
+  enabled: true,
   allow_management: false,
   require_proxy_auth_info: false,
   allow_http_forward: true,
@@ -59,6 +61,7 @@ function endpointToForm(endpoint: Endpoint | null): EndpointFormState {
 
   return {
     port: String(endpoint.port),
+    enabled: endpoint.enabled,
     allow_management: endpoint.allow_management,
     require_proxy_auth_info:
       endpoint.require_proxy_auth_info && (endpoint.allow_http_forward || endpoint.allow_socks5),
@@ -92,6 +95,7 @@ function parseEndpointForm(
 
   return {
     port,
+    enabled: form.enabled,
     allow_management: form.allow_management,
     allow_proxy: allowProxy,
     require_proxy_auth_info: form.require_proxy_auth_info,
@@ -172,6 +176,21 @@ function EndpointForm({ endpoint, endpoints, pending, onClose, onSubmit }: Endpo
 
   return (
     <form className="form-grid" onSubmit={handleSubmit}>
+      <div className="subscription-switch-item field-span-2">
+        <label className="subscription-switch-label" htmlFor="endpoint-enabled">
+          {t("启用")}
+        </label>
+        <Switch
+          id="endpoint-enabled"
+          checked={form.enabled}
+          disabled={readOnly}
+          onChange={(event) => {
+            setForm((current) => ({ ...current, enabled: event.target.checked }));
+            setFormError("");
+          }}
+        />
+      </div>
+
       <div className="field-group field-span-2">
         <label className="field-label" htmlFor="endpoint-port">
           {t("监听端口")}
@@ -309,6 +328,9 @@ export function EndpointsPage() {
   const [pageSize, setPageSize] = useState<number>(20);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingEndpoint, setEditingEndpoint] = useState<Endpoint | null>(null);
+  const [pendingEnabledStates, setPendingEnabledStates] = useState<Map<string, boolean>>(
+    () => new Map(),
+  );
 
   const endpointsQuery = useQuery({
     queryKey: ["endpoints", "page", page, pageSize],
@@ -343,6 +365,23 @@ export function EndpointsPage() {
       await invalidateEndpoints();
       setEditingEndpoint(null);
       showToast("success", t("接入点 :{{port}} 已更新", { port: endpoint.port }));
+    },
+    onError: (error) => {
+      showToast("error", formatApiErrorMessage(error, t));
+    },
+  });
+
+  const toggleEnabledMutation = useMutation({
+    mutationFn: ({ endpoint, enabled }: { endpoint: Endpoint; enabled: boolean }) =>
+      updateEndpoint(endpoint.id, { enabled }),
+    onSuccess: async (endpoint, { enabled }) => {
+      await invalidateEndpoints();
+      showToast(
+        "success",
+        enabled
+          ? t("接入点 :{{port}} 已启用", { port: endpoint.port })
+          : t("接入点 :{{port}} 已禁用", { port: endpoint.port }),
+      );
     },
     onError: (error) => {
       showToast("error", formatApiErrorMessage(error, t));
@@ -414,7 +453,23 @@ export function EndpointsPage() {
     await deleteMutation.mutateAsync(endpoint).catch(() => undefined);
   };
 
-  const editingStatus = editingEndpoint ? statusPresentation(editingEndpoint.status, t) : null;
+  const handleEnabledChange = async (endpoint: Endpoint, enabled: boolean) => {
+    if (endpoint.read_only || pendingEnabledStates.has(endpoint.id)) {
+      return;
+    }
+    setPendingEnabledStates((current) => new Map(current).set(endpoint.id, enabled));
+    try {
+      await toggleEnabledMutation.mutateAsync({ endpoint, enabled });
+    } catch {
+      // The mutation callback surfaces the API error.
+    } finally {
+      setPendingEnabledStates((current) => {
+        const next = new Map(current);
+        next.delete(endpoint.id);
+        return next;
+      });
+    }
+  };
 
   return (
     <section className="platform-page">
@@ -471,6 +526,12 @@ export function EndpointsPage() {
         <div className="endpoint-list">
           {endpoints.map((endpoint) => {
             const status = statusPresentation(endpoint.status, t);
+            const displayedEnabled = pendingEnabledStates.get(endpoint.id) ?? endpoint.enabled;
+            const enabledToggleLabel = endpoint.read_only
+              ? t("默认接入点由环境端口定义，不可修改或删除")
+              : displayedEnabled
+                ? t("禁用接入点 :{{port}}", { port: endpoint.port })
+                : t("启用接入点 :{{port}}", { port: endpoint.port });
             const capabilities = [
               { label: t("登录管理页面"), enabled: endpoint.allow_management },
               { label: t("HTTP 正向代理"), enabled: endpoint.allow_http_forward },
@@ -497,8 +558,8 @@ export function EndpointsPage() {
                       aria-label={status.label}
                     />
                     <p>{endpoint.port}</p>
-                    <div className="endpoint-tile-badges">
-                      {endpoint.read_only ? (
+                    {endpoint.read_only ? (
+                      <div className="endpoint-tile-badges">
                         <Badge
                           variant="info"
                           title={t("默认接入点由环境端口定义，不可修改或删除")}
@@ -506,10 +567,51 @@ export function EndpointsPage() {
                           <LockKeyhole size={10} />
                           {t("默认 · 只读")}
                         </Badge>
-                      ) : (
-                        <Badge variant="neutral">{t("自定义")}</Badge>
-                      )}
-                    </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <span
+                    className="endpoint-enabled-toggle"
+                    title={enabledToggleLabel}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <Switch
+                      checked={displayedEnabled}
+                      disabled={endpoint.read_only || pendingEnabledStates.has(endpoint.id)}
+                      onChange={(event) =>
+                        void handleEnabledChange(endpoint, event.target.checked)
+                      }
+                      aria-label={enabledToggleLabel}
+                    />
+                  </span>
+                </div>
+
+                {endpoint.last_error ? (
+                  <div className="callout callout-error" role="alert">
+                    <AlertTriangle size={14} />
+                    <span>{t("监听错误：{{message}}", { message: endpoint.last_error })}</span>
+                  </div>
+                ) : null}
+
+                <div className="endpoint-tile-bottom">
+                  <div className="platform-tile-facts endpoint-capabilities" aria-label={t("接入能力")}>
+                    {capabilities.map((capability) => (
+                      <span
+                        className="endpoint-capability"
+                        key={capability.label}
+                        aria-label={`${capability.label} · ${capability.enabled ? t("已开启") : t("已关闭")}`}
+                      >
+                        <span
+                          className={`endpoint-capability-indicator ${capability.enabled ? "is-enabled" : "is-disabled"}`}
+                          aria-hidden="true"
+                        />
+                        <span>{capability.label}</span>
+                        <span className="endpoint-capability-state">
+                          {capability.enabled ? t("已开启") : t("已关闭")}
+                        </span>
+                      </span>
+                    ))}
                   </div>
 
                   <div
@@ -539,32 +641,6 @@ export function EndpointsPage() {
                     </Button>
                   </div>
                 </div>
-
-                <div className="platform-tile-facts endpoint-capabilities" aria-label={t("接入能力")}>
-                  {capabilities.map((capability) => (
-                    <span
-                      className="endpoint-capability"
-                      key={capability.label}
-                      aria-label={`${capability.label} · ${capability.enabled ? t("已开启") : t("已关闭")}`}
-                    >
-                      <span
-                        className={`endpoint-capability-indicator ${capability.enabled ? "is-enabled" : "is-disabled"}`}
-                        aria-hidden="true"
-                      />
-                      <span>{capability.label}</span>
-                      <span className="endpoint-capability-state">
-                        {capability.enabled ? t("已开启") : t("已关闭")}
-                      </span>
-                    </span>
-                  ))}
-                </div>
-
-                {endpoint.last_error ? (
-                  <div className="callout callout-error" role="alert">
-                    <AlertTriangle size={14} />
-                    <span>{t("监听错误：{{message}}", { message: endpoint.last_error })}</span>
-                  </div>
-                ) : null}
               </article>
             );
           })}
@@ -581,7 +657,7 @@ export function EndpointsPage() {
         />
       </Card>
 
-      {editingEndpoint && editingStatus ? (
+      {editingEndpoint ? (
         <div
           className="drawer-overlay"
           role="dialog"
@@ -600,7 +676,6 @@ export function EndpointsPage() {
                 <p>{editingEndpoint.id}</p>
               </div>
               <div className="drawer-header-actions">
-                <Badge variant={editingStatus.variant}>{editingStatus.label}</Badge>
                 <Button
                   variant="ghost"
                   size="sm"

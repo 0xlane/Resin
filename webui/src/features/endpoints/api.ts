@@ -1,5 +1,5 @@
 import { apiRequest } from "../../lib/api-client";
-import type { Endpoint, EndpointInput, EndpointListResponse } from "./types";
+import type { Endpoint, EndpointInput, EndpointListResponse, EndpointPatch } from "./types";
 
 const basePath = "/api/v1/endpoints";
 
@@ -7,6 +7,7 @@ function normalizeEndpoint(raw: Endpoint): Endpoint {
   return {
     id: raw.id || "",
     port: Number(raw.port) || 0,
+    enabled: Boolean(raw.enabled),
     allow_management: Boolean(raw.allow_management),
     allow_proxy: Boolean(raw.allow_proxy),
     require_proxy_auth_info: Boolean(raw.require_proxy_auth_info),
@@ -50,7 +51,7 @@ export async function createEndpoint(input: EndpointInput): Promise<Endpoint> {
   return normalizeEndpoint(data);
 }
 
-export async function updateEndpoint(id: string, input: EndpointInput): Promise<Endpoint> {
+export async function updateEndpoint(id: string, input: EndpointPatch): Promise<Endpoint> {
   const data = await apiRequest<Endpoint>(`${basePath}/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: input,

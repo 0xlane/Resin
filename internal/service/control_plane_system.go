@@ -64,7 +64,7 @@ type ControlPlaneService struct {
 
 	configMu      sync.Mutex
 	configVersion int
-	endpointMu    sync.Mutex
+	endpointMu    sync.RWMutex
 }
 
 // ------------------------------------------------------------------

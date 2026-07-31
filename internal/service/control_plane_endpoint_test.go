@@ -60,6 +60,7 @@ func boolPointer(value bool) *bool { return &value }
 func TestNewDefaultEndpoint(t *testing.T) {
 	endpoint := NewDefaultEndpoint(0)
 	if endpoint.ID != DefaultEndpointID || endpoint.Port != 2260 ||
+		!endpoint.Enabled ||
 		!endpoint.AllowManagement || !endpoint.AllowProxy ||
 		!endpoint.AllowHTTPForward || !endpoint.AllowHTTPReverse || !endpoint.AllowSOCKS5 {
 		t.Fatalf("default endpoint = %+v", endpoint)
@@ -92,7 +93,7 @@ func TestControlPlaneEndpoints_CRUDAndDefaultProtection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateEndpoint: %v", err)
 	}
-	if created.ReadOnly || created.Status != "active" || !created.RequireProxyAuthInfo {
+	if created.ReadOnly || !created.Enabled || created.Status != "active" || !created.RequireProxyAuthInfo {
 		t.Fatalf("created endpoint = %+v", created)
 	}
 	if runtime.endpoints[created.ID].Port != 32020 {
@@ -182,6 +183,33 @@ func TestControlPlaneEndpoints_ManagementOnlyDefaultsProxyProtocolsOff(t *testin
 	}
 }
 
+func TestControlPlaneEndpoints_CreateDisabled(t *testing.T) {
+	cp, runtime := newEndpointTestService(t, &config.EnvConfig{
+		ResinPort:   2260,
+		AuthVersion: config.AuthVersionV1,
+	})
+	created, err := cp.CreateEndpoint(CreateEndpointRequest{
+		Port:    32033,
+		Enabled: boolPointer(false),
+	})
+	if err != nil {
+		t.Fatalf("CreateEndpoint: %v", err)
+	}
+	if created.Enabled || created.Status != "inactive" {
+		t.Fatalf("disabled endpoint = %+v", created)
+	}
+	if _, ok := runtime.endpoints[created.ID]; ok {
+		t.Fatal("disabled endpoint was applied to runtime")
+	}
+	persisted, err := cp.Engine.GetEndpoint(created.ID)
+	if err != nil {
+		t.Fatalf("GetEndpoint: %v", err)
+	}
+	if persisted.Enabled {
+		t.Fatal("disabled create state was not persisted")
+	}
+}
+
 func TestControlPlaneEndpoints_ListenerFailureRollsBackPersistence(t *testing.T) {
 	cp, runtime := newEndpointTestService(t, &config.EnvConfig{
 		ResinPort:   2260,
@@ -219,5 +247,83 @@ func TestControlPlaneEndpoints_ListenerFailureRollsBackPersistence(t *testing.T)
 	}
 	if persisted.Port != 32041 {
 		t.Fatalf("persisted port after failed update = %d, want 32041", persisted.Port)
+	}
+}
+
+func TestControlPlaneEndpoints_EnableAndDisableWithPatch(t *testing.T) {
+	cp, runtime := newEndpointTestService(t, &config.EnvConfig{
+		ResinPort:   2260,
+		AuthVersion: config.AuthVersionV1,
+	})
+	created, err := cp.CreateEndpoint(CreateEndpointRequest{Port: 32060})
+	if err != nil {
+		t.Fatalf("CreateEndpoint: %v", err)
+	}
+
+	disabled, err := cp.UpdateEndpoint(created.ID, json.RawMessage(`{"enabled":false}`))
+	if err != nil {
+		t.Fatalf("disable endpoint: %v", err)
+	}
+	if disabled.Enabled || disabled.Status != "inactive" {
+		t.Fatalf("disabled endpoint = %+v", disabled)
+	}
+	if _, ok := runtime.endpoints[created.ID]; ok {
+		t.Fatal("disabled endpoint still exists in runtime")
+	}
+	persisted, err := cp.Engine.GetEndpoint(created.ID)
+	if err != nil {
+		t.Fatalf("GetEndpoint after disable: %v", err)
+	}
+	if persisted.Enabled {
+		t.Fatal("disabled state was not persisted")
+	}
+
+	// A disabled endpoint can be reconfigured without trying to bind its port.
+	runtime.failPort = 32061
+	updated, err := cp.UpdateEndpoint(created.ID, json.RawMessage(`{"port":32061}`))
+	if err != nil {
+		t.Fatalf("UpdateEndpoint while disabled: %v", err)
+	}
+	if updated.Enabled || updated.Port != 32061 || updated.Status != "inactive" {
+		t.Fatalf("updated disabled endpoint = %+v", updated)
+	}
+
+	if _, err := cp.UpdateEndpoint(created.ID, json.RawMessage(`{"enabled":true}`)); err == nil {
+		t.Fatal("enabling endpoint succeeded despite listener failure")
+	} else {
+		assertServiceErrorCode(t, err, "CONFLICT")
+	}
+	persisted, err = cp.Engine.GetEndpoint(created.ID)
+	if err != nil {
+		t.Fatalf("GetEndpoint after failed start: %v", err)
+	}
+	if persisted.Enabled {
+		t.Fatal("failed start should roll enabled state back to false")
+	}
+
+	runtime.failPort = 0
+	started, err := cp.UpdateEndpoint(created.ID, json.RawMessage(`{"enabled":true}`))
+	if err != nil {
+		t.Fatalf("enable endpoint: %v", err)
+	}
+	if !started.Enabled || started.Status != "active" || started.Port != 32061 {
+		t.Fatalf("started endpoint = %+v", started)
+	}
+	if _, err := cp.UpdateEndpoint(created.ID, json.RawMessage(`{"enabled":true}`)); err != nil {
+		t.Fatalf("second enable patch should be idempotent: %v", err)
+	}
+	if _, err := cp.UpdateEndpoint(created.ID, json.RawMessage(`{"enabled":false}`)); err != nil {
+		t.Fatalf("second disable patch: %v", err)
+	}
+	if disabled, err = cp.UpdateEndpoint(created.ID, json.RawMessage(`{"enabled":false}`)); err != nil {
+		t.Fatalf("third disable patch should be idempotent: %v", err)
+	} else if disabled.Enabled || disabled.Status != "inactive" {
+		t.Fatalf("idempotently disabled endpoint = %+v", disabled)
+	}
+
+	if _, err := cp.UpdateEndpoint(DefaultEndpointID, json.RawMessage(`{"enabled":false}`)); err == nil {
+		t.Fatal("disabling default endpoint succeeded")
+	} else {
+		assertServiceErrorCode(t, err, "CONFLICT")
 	}
 }

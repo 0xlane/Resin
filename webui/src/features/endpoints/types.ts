@@ -3,6 +3,7 @@ export type EndpointStatus = "active" | "starting" | "inactive" | "error" | stri
 export type Endpoint = {
   id: string;
   port: number;
+  enabled: boolean;
   allow_management: boolean;
   allow_proxy: boolean;
   require_proxy_auth_info: boolean;
@@ -19,6 +20,7 @@ export type Endpoint = {
 
 export type EndpointInput = {
   port: number;
+  enabled: boolean;
   allow_management: boolean;
   allow_proxy: boolean;
   require_proxy_auth_info: boolean;
@@ -26,6 +28,8 @@ export type EndpointInput = {
   allow_http_reverse: boolean;
   allow_socks5: boolean;
 };
+
+export type EndpointPatch = Partial<EndpointInput>;
 
 export type EndpointListResponse = {
   items: Endpoint[];

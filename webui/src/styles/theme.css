@@ -3005,7 +3005,7 @@ a {
 
 .endpoint-tile {
   cursor: pointer;
-  gap: 12px;
+  gap: 8px;
   padding-left: 16px;
 }
 
@@ -3017,6 +3017,25 @@ a {
   border-color: var(--border);
   transform: none;
   box-shadow: none;
+}
+
+.endpoint-enabled-toggle {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  flex: 0 0 auto;
+}
+
+.endpoint-tile-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.endpoint-tile-bottom .endpoint-capabilities {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .endpoint-tile-heading,

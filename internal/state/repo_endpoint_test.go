@@ -13,6 +13,7 @@ func TestStateRepo_EndpointCRUD(t *testing.T) {
 	first := model.Endpoint{
 		ID:                   "endpoint-a",
 		Port:                 32002,
+		Enabled:              true,
 		AllowManagement:      true,
 		AllowProxy:           true,
 		RequireProxyAuthInfo: true,

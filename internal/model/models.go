@@ -39,6 +39,7 @@ type Subscription struct {
 type Endpoint struct {
 	ID                   string `json:"id"`
 	Port                 int    `json:"port"`
+	Enabled              bool   `json:"enabled"`
 	AllowManagement      bool   `json:"allow_management"`
 	AllowProxy           bool   `json:"allow_proxy"`
 	RequireProxyAuthInfo bool   `json:"require_proxy_auth_info"`
